@@ -9,6 +9,8 @@ export type TitleIdea = {
   format: string;
   trend_score: number;
   demand_score: number;
+  volume_score: number;
+  intent_score: number;
   competition_score: number;
   conversion_score: number;
   score_rationale: string;
@@ -32,7 +34,16 @@ export const generateTitles = createServerFn({ method: "POST" })
     const system = `You are a world-class lead-magnet strategist + senior SEO/demand researcher.
 You use Google Search grounding to verify what people are ACTIVELY searching for right now across Google, Reddit, Quora, YouTube, TikTok, and niche forums. Cite specific source domains/URLs you used.
 You craft PDF lead-magnet titles that convert at 40%+ opt-in.
-Score every idea honestly on a 0-100 scale across Demand, Competition (lower competition = HIGHER score), and Conversion potential. The composite trend_score = round(0.45*demand + 0.30*(100-competition_raw equivalent already inverted in competition_score) + 0.25*conversion). Be conservative — most ideas score 40-75. Only truly hot, low-comp, high-intent ideas score 85+.
+
+Scoring Rules:
+- demand_score: 0-100 — how many people are actively searching/asking this right now.
+- volume_score: 0-100 — search volume strength (is it a broad high-traffic term or a niche long-tail?).
+- intent_score: 0-100 — buyer intent signal (are they looking for a solution to pay for, or just browsing?).
+- competition_score: 0-100 — INVERTED (100 = wide-open/low-comp, 0 = saturated/high-comp).
+- conversion_score: 0-100 — likelihood a cold visitor trades email for this exact title.
+- trend_score: Composite (0.35*demand + 0.20*volume + 0.20*intent + 0.15*competition + 0.10*conversion).
+
+Be conservative. Most ideas score 40-75. Only truly hot, low-comp, high-intent ideas score 85+.
 Return ONLY valid JSON matching the schema. No prose.`;
 
     const user = `Topic / niche: ${data.topic}
@@ -40,19 +51,16 @@ ${data.audience ? `Target audience: ${data.audience}` : ""}
 ${data.keywords ? `Seed keywords / search phrases to anchor on: ${data.keywords}` : ""}
 ${data.intent ? `Buyer intent / desired outcome: ${data.intent}` : ""}
 
-Use live web research to validate demand before suggesting. Generate 8 high-converting PDF lead-magnet title ideas. For each:
+Use live web research to validate demand before suggesting. Generate 8 high-converting PDF lead-magnet title ideas tailored to the audience. For each:
 - title: punchy, specific, benefit-driven, under 70 chars
 - hook: one-line promise that makes someone trade their email
-- audience: who specifically clicks this
+- audience: who specifically clicks this (be specific to the target audience provided)
 - search_signal: the actual question/phrase people are typing into Google/Reddit/YouTube right now (verbatim query in quotes)
 - conversion_angle: WHY this converts (urgency, status, fear, curiosity gap, contrarian, etc.)
 - format: "Checklist" | "Cheatsheet" | "Template" | "Swipe File" | "Playbook" | "Mini-Guide" | "Toolkit" | "Script"
-- demand_score: 0-100 — how many people are actively searching/asking this right now
-- competition_score: 0-100 — INVERTED (100 = wide-open, 0 = saturated by big players / existing lead magnets)
-- conversion_score: 0-100 — likelihood a cold visitor trades email for this exact title
-- trend_score: 0-100 — composite (see formula in system prompt)
-- score_rationale: 1-sentence justification grounded in what you found
-- sources: 2-4 short citations (domain or URL) that informed the demand read (e.g. "reddit.com/r/leanstartup", "answerthepublic.com", "youtube.com search 'X'")
+- demand_score, volume_score, intent_score, competition_score, conversion_score, trend_score: numbers 0-100 (see system prompt)
+- score_rationale: 1-sentence justification grounded in volume and intent signals found
+- sources: 2-4 short citations (domain or URL) that informed the demand read
 
 Vary formats. Avoid generic titles like "Ultimate Guide to X". Be specific with numbers, timeframes, and outcomes.`;
 
@@ -72,17 +80,20 @@ Vary formats. Avoid generic titles like "Ultimate Guide to X". Be specific with 
               format: { type: "string" },
               trend_score: { type: "number" },
               demand_score: { type: "number" },
+              volume_score: { type: "number" },
+              intent_score: { type: "number" },
               competition_score: { type: "number" },
               conversion_score: { type: "number" },
               score_rationale: { type: "string" },
               sources: { type: "array", items: { type: "string" } },
             },
-            required: ["title", "hook", "audience", "search_signal", "conversion_angle", "format", "trend_score", "demand_score", "competition_score", "conversion_score", "score_rationale", "sources"],
+            required: ["title", "hook", "audience", "search_signal", "conversion_angle", "format", "trend_score", "demand_score", "volume_score", "intent_score", "competition_score", "conversion_score", "score_rationale", "sources"],
           },
         },
       },
       required: ["ideas"],
     };
+
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

@@ -6,7 +6,30 @@ import { generateTitles, generateOutline, type TitleIdea, type Outline } from "@
 import { FREE_GENERATION_LIMIT } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sparkles, TrendingUp, Target, Zap, Loader2, FileText, Copy, Check, Link2, Flame, BookOpen, ArrowRight, Lock, Crown, CheckCircle2, X } from "lucide-react";
+import {
+  Sparkles,
+  TrendingUp,
+  Target,
+  Zap,
+  Loader2,
+  FileText,
+  Copy,
+  Check,
+  Link2,
+  Flame,
+  BookOpen,
+  ArrowRight,
+  Lock,
+  Crown,
+  CheckCircle2,
+  X,
+  Search,
+  Users,
+  SortAsc,
+  Filter,
+  BarChart3,
+  MousePointerClick
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +37,30 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+const AUDIENCE_PRESETS = [
+  "Nigerian Moms",
+  "Remote Freelancers",
+  "Church Pastors",
+  "Tech Founders",
+  "Real Estate Agents",
+  "First-time Homebuyers"
+];
 
 // ── localStorage keys ──────────────────────────────────────────────────────
 const LS_GEN_COUNT = "tf_gen_count";
@@ -56,6 +103,11 @@ function Index() {
   const [intent, setIntent] = useState("");
   const [copied, setCopied] = useState<number | null>(null);
   const [outlineFor, setOutlineFor] = useState<TitleIdea | null>(null);
+
+  // Sorting and Filtering
+  const [sortBy, setSortBy] = useState<"trend" | "demand" | "volume" | "intent" | "comp" | "conv">("trend");
+  const [filterFormat, setFilterFormat] = useState("All");
+  const [filterAudience, setFilterAudience] = useState("All");
 
   // Paywall state
   const [showPaywall, setShowPaywall] = useState(false);
@@ -188,6 +240,28 @@ function Index() {
     setTimeout(() => setCopied(null), 1500);
   };
 
+  // ── Derived Data for Results ──────────────────────────────────────────────
+  const rawIdeas = mutation.data?.ideas ?? [];
+  
+  // Get unique formats and audiences for filters
+  const formats = ["All", ...Array.from(new Set(rawIdeas.map((i) => i.format)))];
+  const audiences = ["All", ...Array.from(new Set(rawIdeas.map((i) => i.audience)))];
+
+  // Apply filtering and sorting
+  const filteredIdeas = [...rawIdeas]
+    .filter((idea) => filterFormat === "All" || idea.format === filterFormat)
+    .filter((idea) => filterAudience === "All" || idea.audience === filterAudience)
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "demand": return b.demand_score - a.demand_score;
+        case "volume": return b.volume_score - a.volume_score;
+        case "intent": return b.intent_score - a.intent_score;
+        case "comp": return b.competition_score - a.competition_score;
+        case "conv": return b.conversion_score - a.conversion_score;
+        default: return b.trend_score - a.trend_score;
+      }
+    });
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {justPaid && (
@@ -226,11 +300,11 @@ function Index() {
         </header>
 
         <section className="mx-auto max-w-4xl px-6 pb-20 pt-16 text-center md:pt-28">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card/50 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
-            <Sparkles className="h-3 w-3 text-primary" />
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary backdrop-blur">
+            <Sparkles className="h-3 w-3" />
             Built for creators, marketers & coaches
           </div>
-          <h1 className="text-balance text-5xl font-bold leading-[1.05] tracking-tight md:text-7xl">
+          <h1 className="text-balance text-5xl font-bold leading-[1.05] tracking-tight text-foreground md:text-7xl">
             PDF titles people are{" "}
             <span
               className="bg-clip-text text-transparent"
@@ -244,61 +318,110 @@ function Index() {
             with the search query, audience, and conversion angle behind each one.
           </p>
 
-          <form
-            onSubmit={onSubmit}
-            className="mx-auto mt-10 flex max-w-2xl flex-col gap-3 rounded-2xl border border-border bg-card p-3 text-left shadow-2xl"
-          >
-            <Input
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="Your niche or topic (e.g. 'fitness for busy dads')"
-              className="border-0 bg-transparent text-base shadow-none focus-visible:ring-0 md:text-lg"
-              required
-            />
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Input
-                value={audience}
-                onChange={(e) => setAudience(e.target.value)}
-                placeholder="Audience (optional) — e.g. 'first-time founders'"
-                className="border-0 bg-secondary/50 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
-              <Input
-                value={keywords}
-                onChange={(e) => setKeywords(e.target.value)}
-                placeholder="Keywords (optional) — e.g. 'meal prep, fat loss'"
-                className="border-0 bg-secondary/50 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-ring"
-              />
-              <Input
-                value={intent}
-                onChange={(e) => setIntent(e.target.value)}
-                placeholder="Buyer intent (optional) — e.g. 'lose 10lbs in 30 days'"
-                className="border-0 bg-secondary/50 text-sm shadow-none focus-visible:ring-1 focus-visible:ring-ring sm:col-span-2"
-              />
+          <div className="mx-auto mt-10 max-w-3xl space-y-4">
+            <form
+              onSubmit={onSubmit}
+              className="flex flex-col gap-3 rounded-3xl border border-border bg-card p-4 text-left shadow-premium"
+            >
+              <div className="flex flex-col gap-4 p-2">
+                <div className="flex items-center gap-3 border-b border-border pb-4">
+                  <Search className="h-5 w-5 text-muted-foreground" />
+                  <Input
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    placeholder="Your niche or topic (e.g. 'fitness for busy dads')"
+                    className="h-auto border-0 bg-transparent p-0 text-lg font-medium shadow-none focus-visible:ring-0 md:text-xl"
+                    required
+                  />
+                </div>
+                
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      <Users className="h-3 w-3" />
+                      Target Audience
+                    </div>
+                    <Input
+                      value={audience}
+                      onChange={(e) => setAudience(e.target.value)}
+                      placeholder="e.g. Nigerian moms, pastors..."
+                      className="h-10 border-border bg-secondary/30 text-sm focus-visible:ring-primary/20"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      <TrendingUp className="h-3 w-3" />
+                      Keywords (optional)
+                    </div>
+                    <Input
+                      value={keywords}
+                      onChange={(e) => setKeywords(e.target.value)}
+                      placeholder="e.g. meal prep, fat loss"
+                      className="h-10 border-border bg-secondary/30 text-sm focus-visible:ring-primary/20"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    <Target className="h-3 w-3" />
+                    Buyer Intent / Desired Outcome (optional)
+                  </div>
+                  <Input
+                    value={intent}
+                    onChange={(e) => setIntent(e.target.value)}
+                    placeholder="e.g. lose 10lbs in 30 days"
+                    className="h-10 border-border bg-secondary/30 text-sm focus-visible:ring-primary/20"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-border pt-4 px-2">
+                <div className="hidden items-center gap-2 md:flex">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Quick Select:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {AUDIENCE_PRESETS.slice(0, 3).map((a) => (
+                      <button
+                        key={a}
+                        type="button"
+                        onClick={() => setAudience(a)}
+                        className="rounded-full border border-border bg-secondary/50 px-2 py-0.5 text-[10px] font-medium transition hover:border-primary/50 hover:bg-primary/5"
+                      >
+                        {a}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Button
+                  type="submit"
+                  disabled={mutation.isPending || !topic.trim()}
+                  className="h-11 px-8 font-bold shadow-lg shadow-primary/20"
+                  style={{ background: "var(--grad-accent)" }}
+                >
+                  {mutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Analyzing Demand...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="mr-2 h-4 w-4" />
+                      Generate High-Demand Titles
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+            
+            <div className="flex flex-wrap justify-center gap-4 text-xs font-medium text-muted-foreground">
+              <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-primary" /> Demand-backed scoring</span>
+              <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-primary" /> Audience-specific targeting</span>
+              <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-primary" /> Sorting by Volume & Intent</span>
             </div>
-            <div className="flex justify-end">
-              <Button
-                type="submit"
-                disabled={mutation.isPending || !topic.trim()}
-                className="h-11 shrink-0 font-semibold text-primary-foreground"
-                style={{ background: "var(--grad-accent)" }}
-              >
-                {mutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Forging…
-                  </>
-                ) : (
-                  <>
-                    <Zap className="mr-2 h-4 w-4" />
-                    Generate Titles
-                  </>
-                )}
-              </Button>
-            </div>
-          </form>
+          </div>
 
           {mutation.isError && (
-            <p className="mt-4 text-sm text-destructive">
+            <p className="mt-4 text-sm font-medium text-destructive">
               {(mutation.error as Error).message}
             </p>
           )}
@@ -307,106 +430,179 @@ function Index() {
 
       <main className="mx-auto max-w-6xl px-6 pb-24">
         {mutation.data?.ideas && (
-          <div className="grid gap-4 md:grid-cols-2">
-            {[...mutation.data.ideas]
-              .sort((a, b) => (b.trend_score ?? 0) - (a.trend_score ?? 0))
-              .map((idea: TitleIdea, i: number) => (
-              <article
-                key={i}
-                className="group relative flex flex-col gap-4 rounded-2xl border border-border bg-card p-6 transition-all hover:border-primary/40"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-secondary px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      {idea.format}
-                    </span>
-                    <TrendBadge score={idea.trend_score} />
-                  </div>
-                  <button
-                    onClick={() => copy(idea.title, i)}
-                    className="text-muted-foreground transition hover:text-primary"
-                    aria-label="Copy title"
+          <div className="space-y-8">
+            {/* Sort & Filter Bar */}
+            <div className="sticky top-4 z-10 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-card/80 p-3 backdrop-blur-xl shadow-premium">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 px-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  <Filter className="h-3.5 w-3.5" />
+                  Filter:
+                </div>
+                <Select value={filterFormat} onValueChange={setFilterFormat}>
+                  <SelectTrigger className="h-9 w-[130px] bg-secondary/50">
+                    <SelectValue placeholder="Format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {formats.map((f) => (
+                      <SelectItem key={f} value={f}>{f}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={filterAudience} onValueChange={setFilterAudience}>
+                  <SelectTrigger className="h-9 w-[150px] bg-secondary/50">
+                    <SelectValue placeholder="Audience" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {audiences.map((a) => (
+                      <SelectItem key={a} value={a}>{a}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 px-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  <SortAsc className="h-3.5 w-3.5" />
+                  Sort:
+                </div>
+                <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+                  <SelectTrigger className="h-9 w-[140px] bg-primary/10 font-semibold text-primary">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="trend">Composite Trend</SelectItem>
+                    <SelectItem value="demand">Active Demand</SelectItem>
+                    <SelectItem value="volume">Search Volume</SelectItem>
+                    <SelectItem value="intent">Buyer Intent</SelectItem>
+                    <SelectItem value="comp">Lowest Comp.</SelectItem>
+                    <SelectItem value="conv">Opt-in Potential</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Results Grid */}
+            {filteredIdeas.length > 0 ? (
+              <div className="grid gap-6 md:grid-cols-2">
+                {filteredIdeas.map((idea: TitleIdea, i: number) => (
+                  <article
+                    key={i}
+                    className="group relative flex flex-col gap-4 rounded-3xl border border-border bg-card p-7 transition-all hover:border-primary/40 hover:shadow-premium"
                   >
-                    {copied === i ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </button>
-                </div>
-                <h3 className="text-xl font-bold leading-tight tracking-tight">{idea.title}</h3>
-                <p className="text-sm italic text-muted-foreground">"{idea.hook}"</p>
-                <ScoreBars
-                  demand={idea.demand_score}
-                  competition={idea.competition_score}
-                  conversion={idea.conversion_score}
-                  rationale={idea.score_rationale}
-                />
-                <div className="mt-auto space-y-2 border-t border-border pt-4 text-xs">
-                  <Row icon={<Target className="h-3.5 w-3.5" />} label="Audience" value={idea.audience} />
-                  <Row
-                    icon={<TrendingUp className="h-3.5 w-3.5" />}
-                    label="Search signal"
-                    value={idea.search_signal}
-                  />
-                  <Row
-                    icon={<Sparkles className="h-3.5 w-3.5" />}
-                    label="Why it converts"
-                    value={idea.conversion_angle}
-                  />
-                  {idea.sources?.length > 0 && (
-                    <div className="flex gap-2 pt-1">
-                      <span className="mt-0.5 text-primary"><Link2 className="h-3.5 w-3.5" /></span>
-                      <div className="flex-1">
-                        <span className="font-semibold text-foreground">Sources: </span>
-                        <span className="text-muted-foreground">
-                          {idea.sources.map((s, j) => {
-                            const url = s.startsWith("http") ? s : `https://${s.replace(/^\/+/, "")}`;
-                            return (
-                              <a
-                                key={j}
-                                href={url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="mr-2 underline decoration-dotted underline-offset-2 hover:text-primary"
-                              >
-                                {s}
-                              </a>
-                            );
-                          })}
-                        </span>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="secondary" className="rounded-full bg-secondary text-[10px] uppercase tracking-wider font-bold">
+                          {idea.format}
+                        </Badge>
+                        <TrendBadge score={idea.trend_score} />
                       </div>
+                      <button
+                        onClick={() => copy(idea.title, i)}
+                        className="rounded-full bg-secondary/50 p-2 text-muted-foreground transition hover:bg-primary/10 hover:text-primary"
+                        aria-label="Copy title"
+                      >
+                        {copied === i ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </button>
                     </div>
-                  )}
+
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-extrabold leading-tight tracking-tight text-foreground">{idea.title}</h3>
+                      <p className="text-base italic text-muted-foreground">"{idea.hook}"</p>
+                    </div>
+
+                    <ScoreBars
+                      demand={idea.demand_score}
+                      volume={idea.volume_score}
+                      intent={idea.intent_score}
+                      competition={idea.competition_score}
+                      conversion={idea.conversion_score}
+                      rationale={idea.score_rationale}
+                    />
+
+                    <div className="mt-auto space-y-3 border-t border-border pt-5 text-[13px]">
+                      <Row icon={<Users className="h-4 w-4 text-primary" />} label="Audience" value={idea.audience} />
+                      <Row
+                        icon={<TrendingUp className="h-4 w-4 text-primary" />}
+                        label="Demand Signal"
+                        value={idea.search_signal}
+                      />
+                      <Row
+                        icon={<Sparkles className="h-4 w-4 text-primary" />}
+                        label="Conversion Logic"
+                        value={idea.conversion_angle}
+                      />
+                      
+                      {idea.sources?.length > 0 && (
+                        <div className="flex gap-2.5 pt-1">
+                          <span className="mt-0.5 text-primary/60"><Link2 className="h-4 w-4" /></span>
+                          <div className="flex-1">
+                            <span className="font-bold text-foreground">Verified at: </span>
+                            <span className="text-muted-foreground">
+                              {idea.sources.map((s, j) => {
+                                const url = s.startsWith("http") ? s : `https://${s.replace(/^\/+/, "")}`;
+                                return (
+                                  <a
+                                    key={j}
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mr-2 underline decoration-primary/30 decoration-dotted underline-offset-4 hover:text-primary"
+                                  >
+                                    {s.split('/')[0]}
+                                  </a>
+                                );
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <Button
+                      onClick={() => openOutline(idea)}
+                      variant="outline"
+                      className="mt-2 h-12 w-full justify-between rounded-xl border-primary/20 hover:border-primary/50 hover:bg-primary/5"
+                    >
+                      <span className="flex items-center gap-2 text-sm font-bold">
+                        <BookOpen className="h-4 w-4 text-primary" />
+                        Build Full PDF Outline
+                      </span>
+                      <ArrowRight className="h-4 w-4 text-primary" />
+                    </Button>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-border py-20 text-center">
+                <div className="mb-4 rounded-full bg-secondary p-4">
+                  <Filter className="h-8 w-8 text-muted-foreground" />
                 </div>
-                <Button
-                  onClick={() => openOutline(idea)}
-                  variant="outline"
-                  className="mt-2 w-full justify-between border-primary/30 hover:border-primary/60 hover:bg-primary/5"
-                >
-                  <span className="flex items-center gap-2 text-sm font-semibold">
-                    <BookOpen className="h-4 w-4 text-primary" />
-                    Build chapter outline
-                  </span>
-                  <ArrowRight className="h-4 w-4 text-primary" />
+                <h3 className="text-xl font-bold">No ideas match these filters</h3>
+                <p className="mt-1 text-muted-foreground">Try clearing your filters or generating more ideas.</p>
+                <Button variant="link" onClick={() => { setFilterFormat("All"); setFilterAudience("All"); }} className="mt-2">
+                  Clear all filters
                 </Button>
-              </article>
-            ))}
+              </div>
+            )}
           </div>
         )}
 
         {!mutation.data && !mutation.isPending && (
-          <div className="grid gap-6 rounded-2xl border border-border bg-card/50 p-8 md:grid-cols-3">
+          <div className="grid gap-6 rounded-3xl border border-border bg-card p-10 md:grid-cols-3 shadow-premium">
             <Feature
-              icon={<TrendingUp className="h-5 w-5" />}
+              icon={<TrendingUp className="h-6 w-6 text-primary" />}
               title="Demand-grounded"
-              text="Each title maps to what people actually search on Google, Reddit & YouTube."
+              text="Every idea is verified against live search signals from Google, Reddit & YouTube."
             />
             <Feature
-              icon={<Target className="h-5 w-5" />}
+              icon={<Target className="h-6 w-6 text-primary" />}
               title="Audience-specific"
-              text="No generic fluff. Titles speak to a clear who and a clear pain."
+              text="Target exact segments like 'pastors' or 'Nigerian moms' for high resonance."
             />
             <Feature
-              icon={<Zap className="h-5 w-5" />}
-              title="Conversion logic"
-              text="See why each idea converts — urgency, status, curiosity, contrarian."
+              icon={<Zap className="h-6 w-6 text-primary" />}
+              title="High Intent"
+              text="Identify ideas with commercial intent so you build what actually sells."
             />
           </div>
         )}
@@ -482,21 +678,45 @@ function TrendBadge({ score }: { score: number }) {
 
 function ScoreBars({
   demand,
+  volume,
+  intent,
   competition,
   conversion,
   rationale,
 }: {
   demand: number;
+  volume: number;
+  intent: number;
   competition: number;
   conversion: number;
   rationale: string;
 }) {
   return (
-    <div className="space-y-1.5 rounded-lg border border-border bg-secondary/40 p-3">
-      <Bar label="Demand" value={demand} />
-      <Bar label="Low comp." value={competition} />
-      <Bar label="Conversion" value={conversion} />
-      {rationale && <p className="pt-1 text-[11px] leading-snug text-muted-foreground">{rationale}</p>}
+    <div className="space-y-1.5 rounded-xl border border-border bg-secondary/30 p-4">
+      <div className="grid grid-cols-2 gap-4 pb-2">
+        <MetricBadge label="Volume" value={volume} icon={<BarChart3 className="h-3 w-3" />} />
+        <MetricBadge label="Intent" value={intent} icon={<MousePointerClick className="h-3 w-3" />} />
+      </div>
+      <div className="space-y-1.5 border-t border-border pt-2">
+        <Bar label="Demand" value={demand} />
+        <Bar label="Low comp." value={competition} />
+        <Bar label="Conversion" value={conversion} />
+      </div>
+      {rationale && <p className="pt-2 text-[11px] leading-snug text-muted-foreground">{rationale}</p>}
+    </div>
+  );
+}
+
+function MetricBadge({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
+  const v = Math.round(value ?? 0);
+  const color = v >= 70 ? "text-primary bg-primary/10" : "text-muted-foreground bg-secondary/50";
+  return (
+    <div className={`flex items-center gap-2 rounded-lg px-2 py-1.5 ${color}`}>
+      {icon}
+      <div className="flex flex-col leading-none">
+        <span className="text-[9px] font-bold uppercase tracking-tight opacity-70">{label}</span>
+        <span className="text-xs font-bold">{v}%</span>
+      </div>
     </div>
   );
 }
