@@ -13,6 +13,10 @@ export type TitleIdea = {
   intent_score: number;
   competition_score: number;
   conversion_score: number;
+  density: "Underserved" | "Emerging" | "Saturated";
+  marketplace_data: string;
+  price_usd: string;
+  price_ngn: string;
   score_rationale: string;
   sources: string[];
 };
@@ -32,18 +36,17 @@ export const generateTitles = createServerFn({ method: "POST" })
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 
     const system = `You are a world-class lead-magnet strategist + senior SEO/demand researcher.
-You use Google Search grounding to verify what people are ACTIVELY searching for right now across Google, Reddit, Quora, YouTube, TikTok, and niche forums. Cite specific source domains/URLs you used.
-You craft PDF lead-magnet titles that convert at 40%+ opt-in.
+You use Google Search grounding to verify what people are ACTIVELY searching for right now across Google, Reddit, Quora, YouTube, TikTok, and niche forums. 
+You also act as a marketplace analyst for Selar, Gumroad, and Etsy to check competition density.
 
 Scoring Rules:
-- demand_score: 0-100 — how many people are actively searching/asking this right now.
-- volume_score: 0-100 — search volume strength (is it a broad high-traffic term or a niche long-tail?).
-- intent_score: 0-100 — buyer intent signal (are they looking for a solution to pay for, or just browsing?).
-- competition_score: 0-100 — INVERTED (100 = wide-open/low-comp, 0 = saturated/high-comp).
-- conversion_score: 0-100 — likelihood a cold visitor trades email for this exact title.
+- demand_score: 0-100 — active search volume.
+- volume_score: 0-100 — broad traffic strength.
+- intent_score: 0-100 — commercial intent.
+- competition_score: 0-100 — INVERTED (100 = open, 0 = saturated).
+- conversion_score: 0-100 — opt-in likelihood.
 - trend_score: Composite (0.35*demand + 0.20*volume + 0.20*intent + 0.15*competition + 0.10*conversion).
 
-Be conservative. Most ideas score 40-75. Only truly hot, low-comp, high-intent ideas score 85+.
 Return ONLY valid JSON matching the schema. No prose.`;
 
     const user = `Topic / niche: ${data.topic}
@@ -51,18 +54,18 @@ ${data.audience ? `Target audience: ${data.audience}` : ""}
 ${data.keywords ? `Seed keywords / search phrases to anchor on: ${data.keywords}` : ""}
 ${data.intent ? `Buyer intent / desired outcome: ${data.intent}` : ""}
 
-Use live web research to validate demand before suggesting. Generate 8 high-converting PDF lead-magnet title ideas tailored to the audience. For each:
-- title: punchy, specific, benefit-driven, under 70 chars
-- hook: one-line promise that makes someone trade their email
-- audience: who specifically clicks this (be specific to the target audience provided)
-- search_signal: the actual question/phrase people are typing into Google/Reddit/YouTube right now (verbatim query in quotes)
-- conversion_angle: WHY this converts (urgency, status, fear, curiosity gap, contrarian, etc.)
-- format: "Checklist" | "Cheatsheet" | "Template" | "Swipe File" | "Playbook" | "Mini-Guide" | "Toolkit" | "Script"
-- demand_score, volume_score, intent_score, competition_score, conversion_score, trend_score: numbers 0-100 (see system prompt)
-- score_rationale: 1-sentence justification grounded in volume and intent signals found
-- sources: 2-4 short citations (domain or URL) that informed the demand read
+1. Perform live web research to validate demand.
+2. Check Selar, Gumroad, and Etsy for similar existing products.
+3. Generate 8 high-converting PDF title ideas. For each:
+- title, hook, audience, search_signal, conversion_angle, format
+- density: "Underserved" (0-5 similar), "Emerging" (5-15 similar), "Saturated" (15+ similar)
+- marketplace_data: 1-sentence summary of what you found on Selar/Gumroad/Etsy (e.g. "Only 2 similar guides on Selar; none on Gumroad.")
+- price_usd: suggested price range (e.g. "$12 - $19")
+- price_ngn: suggested price range (e.g. "₦8,500 - ₦14,000")
+- demand_score, volume_score, intent_score, competition_score, conversion_score, trend_score
+- score_rationale, sources
 
-Vary formats. Avoid generic titles like "Ultimate Guide to X". Be specific with numbers, timeframes, and outcomes.`;
+Vary formats. Avoid generic titles. Be specific with numbers, timeframes, and outcomes.`;
 
     const schema = {
       type: "object",
@@ -84,16 +87,19 @@ Vary formats. Avoid generic titles like "Ultimate Guide to X". Be specific with 
               intent_score: { type: "number" },
               competition_score: { type: "number" },
               conversion_score: { type: "number" },
+              density: { type: "string", enum: ["Underserved", "Emerging", "Saturated"] },
+              marketplace_data: { type: "string" },
+              price_usd: { type: "string" },
+              price_ngn: { type: "string" },
               score_rationale: { type: "string" },
               sources: { type: "array", items: { type: "string" } },
             },
-            required: ["title", "hook", "audience", "search_signal", "conversion_angle", "format", "trend_score", "demand_score", "volume_score", "intent_score", "competition_score", "conversion_score", "score_rationale", "sources"],
+            required: ["title", "hook", "audience", "search_signal", "conversion_angle", "format", "trend_score", "demand_score", "volume_score", "intent_score", "competition_score", "conversion_score", "density", "marketplace_data", "price_usd", "price_ngn", "score_rationale", "sources"],
           },
         },
       },
       required: ["ideas"],
     };
-
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -167,25 +173,21 @@ export const generateOutline = createServerFn({ method: "POST" })
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 
-    const system = `You are a world-class lead-magnet author and instructional designer. You design chapter outlines for short, high-conversion PDF lead magnets (12-30 pages) that deliver one clear transformation. No fluff. Every chapter moves the reader closer to the promised outcome. Return ONLY valid JSON matching the schema.`;
+    const system = `You are a world-class lead-magnet author and instructional designer. You design structured, 5-chapter outlines for high-conversion PDF lead magnets (12-30 pages) that deliver one clear transformation. Return ONLY valid JSON matching the schema.`;
 
-    const user = `Build a chapter outline for this PDF lead magnet.
-
+    const user = `Build a high-value, 5-chapter structure for this PDF.
 Title: ${data.title}
-${data.hook ? `Hook: ${data.hook}` : ""}
-${data.audience ? `Audience: ${data.audience}` : ""}
-${data.format ? `Format: ${data.format}` : ""}
-${data.angle ? `Conversion angle: ${data.angle}` : ""}
+Hook: ${data.hook}
+Audience: ${data.audience}
+Format: ${data.format}
 
-Return:
-- pdf_title: final title (refine slightly if needed)
-- subtitle: one-line subtitle reinforcing the promise
-- estimated_pages: realistic total (12-30)
-- reader_transformation: one sentence: BEFORE -> AFTER
-- chapters: 5-8 chapters. Each: number, title (punchy), promise (what they can do after), bullets (3-5 concrete sub-points), action_step (one tactical do-this-now task)
-- cta: closing call-to-action bridging to a paid offer or next step
+Structure:
+- Chapters 1-5 only.
+- pdf_title, subtitle, estimated_pages, reader_transformation
+- chapters: number, title, promise, bullets (3-5), action_step
+- cta
 
-Be specific. Use numbers, frameworks, and tactics over abstract advice.`;
+Make it tactical and fluff-free.`;
 
     const schema = {
       type: "object",

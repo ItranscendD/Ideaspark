@@ -28,7 +28,12 @@ import {
   SortAsc,
   Filter,
   BarChart3,
-  MousePointerClick
+  MousePointerClick,
+  ShoppingBag,
+  DollarSign,
+  AlertCircle,
+  MapPin,
+  Globe
 } from "lucide-react";
 import {
   Dialog,
@@ -519,6 +524,31 @@ function Index() {
                       rationale={idea.score_rationale}
                     />
 
+                    {/* Marketplace & Pricing Layer */}
+                    <div className="grid gap-3 rounded-2xl border border-border bg-secondary/20 p-4">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                            <ShoppingBag className="h-3 w-3" />
+                            Marketplace Audit
+                          </span>
+                          <DensityBadge density={idea.density} />
+                        </div>
+                        <p className="text-xs text-foreground leading-snug">{idea.marketplace_data}</p>
+                      </div>
+                      
+                      <div className="flex items-center justify-between border-t border-border pt-2">
+                        <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                          <DollarSign className="h-3.5 w-3.5" />
+                          Suggested Pricing
+                        </span>
+                        <div className="flex items-center gap-3">
+                          <div className="text-xs font-bold text-primary">{idea.price_usd} <span className="opacity-60 font-medium">USD</span></div>
+                          <div className="text-xs font-bold text-accent">{idea.price_ngn} <span className="opacity-60 font-medium">NGN</span></div>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="mt-auto space-y-3 border-t border-border pt-5 text-[13px]">
                       <Row icon={<Users className="h-4 w-4 text-primary" />} label="Audience" value={idea.audience} />
                       <Row
@@ -654,6 +684,26 @@ function Feature({ icon, title, text }: { icon: React.ReactNode; title: string; 
       <h3 className="mb-1 font-semibold">{title}</h3>
       <p className="text-sm text-muted-foreground">{text}</p>
     </div>
+  );
+}
+
+function DensityBadge({ density }: { density: TitleIdea["density"] }) {
+  let styles = "bg-green-100 text-green-700 border-green-200";
+  let icon = <Globe className="h-2.5 w-2.5" />;
+  
+  if (density === "Emerging") {
+    styles = "bg-amber-100 text-amber-700 border-amber-200";
+    icon = <TrendingUp className="h-2.5 w-2.5" />;
+  } else if (density === "Saturated") {
+    styles = "bg-red-100 text-red-700 border-red-200";
+    icon = <AlertCircle className="h-2.5 w-2.5" />;
+  }
+
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-tight ${styles}`}>
+      {icon}
+      {density}
+    </span>
   );
 }
 
