@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { generateTitles, generateOutline, type TitleIdea, type Outline } from "@/lib/titles.functions";
+import { FREE_GENERATION_LIMIT } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sparkles, TrendingUp, Target, Zap, Loader2, FileText, Copy, Check, Link2, Flame, BookOpen, ArrowRight } from "lucide-react";
+import { Sparkles, TrendingUp, Target, Zap, Loader2, FileText, Copy, Check, Link2, Flame, BookOpen, ArrowRight, Lock, Crown, CheckCircle2, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +14,11 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+
+// ── localStorage keys ──────────────────────────────────────────────────────
+const LS_GEN_COUNT = "tf_gen_count";
+const LS_SUBSCRIBED = "tf_subscribed";
+const LS_EMAIL = "tf_email";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -28,6 +34,21 @@ export const Route = createFileRoute("/")({
   }),
 });
 
+// ── Subscription state helpers ─────────────────────────────────────────────
+function getGenCount(): number {
+  try { return parseInt(localStorage.getItem(LS_GEN_COUNT) ?? "0", 10) || 0; }
+  catch { return 0; }
+}
+function isSubscribed(): boolean {
+  try { return localStorage.getItem(LS_SUBSCRIBED) === "true"; }
+  catch { return false; }
+}
+function incrementGenCount() {
+  try { localStorage.setItem(LS_GEN_COUNT, String(getGenCount() + 1)); }
+  catch { /* SSR */ }
+}
+
+// ── Main component ─────────────────────────────────────────────────────────
 function Index() {
   const [topic, setTopic] = useState("");
   const [audience, setAudience] = useState("");
@@ -35,12 +56,61 @@ function Index() {
   const [intent, setIntent] = useState("");
   const [copied, setCopied] = useState<number | null>(null);
   const [outlineFor, setOutlineFor] = useState<TitleIdea | null>(null);
+
+  // Paywall state
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallEmail, setPaywallEmail] = useState("");
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [subscribed, setSubscribed] = useState(false);
+  const [justPaid, setJustPaid] = useState(false);
+
   const fn = useServerFn(generateTitles);
   const outlineFn = useServerFn(generateOutline);
 
+  // ── On mount: restore subscription state & handle payment return ──────────
+  useEffect(() => {
+    setSubscribed(isSubscribed());
+
+    // Restore saved email
+    try {
+      const saved = localStorage.getItem(LS_EMAIL);
+      if (saved) setPaywallEmail(saved);
+    } catch { /* ignore */ }
+
+    // Handle Paystack redirect back: ?payment=success&reference=xxx
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("payment") === "success") {
+      const reference = params.get("reference");
+      if (reference) {
+        // Verify with our backend before granting access
+        fetch(`/api/payment/verify?reference=${encodeURIComponent(reference)}`)
+          .then((r) => r.json())
+          .then((data: { verified?: boolean }) => {
+            if (data.verified) {
+              localStorage.setItem(LS_SUBSCRIBED, "true");
+              setSubscribed(true);
+              setJustPaid(true);
+            }
+          })
+          .catch(console.error)
+          .finally(() => {
+            // Clean up query params from URL
+            window.history.replaceState({}, "", window.location.pathname);
+          });
+      } else {
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    }
+  }, []);
+
+  // ── Generation mutations ───────────────────────────────────────────────────
   const mutation = useMutation({
     mutationFn: (input: { topic: string; audience: string; keywords: string; intent: string }) =>
       fn({ data: input }),
+    onSuccess: () => {
+      incrementGenCount();
+    },
   });
 
   const outlineMutation = useMutation({
@@ -62,11 +132,55 @@ function Index() {
     outlineMutation.mutate(idea);
   };
 
+  // ── Submit with paywall gate ───────────────────────────────────────────────
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic.trim()) return;
+
+    const genCount = getGenCount();
+    if (!isSubscribed() && genCount >= FREE_GENERATION_LIMIT) {
+      // Trigger the paywall modal
+      setShowPaywall(true);
+      return;
+    }
+
     mutation.mutate({ topic, audience, keywords, intent });
   };
+
+  // ── Paystack payment flow ─────────────────────────────────────────────────
+  const handleUpgrade = useCallback(async () => {
+    if (!paywallEmail || !paywallEmail.includes("@")) {
+      setPaymentError("Please enter a valid email address");
+      return;
+    }
+
+    try {
+      localStorage.setItem(LS_EMAIL, paywallEmail);
+    } catch { /* ignore */ }
+
+    setPaymentLoading(true);
+    setPaymentError(null);
+
+    try {
+      const res = await fetch("/api/payment/initialize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: paywallEmail }),
+      });
+
+      const data = (await res.json()) as { paymentUrl?: string; error?: string };
+
+      if (!res.ok || !data.paymentUrl) {
+        throw new Error(data.error ?? "Could not create payment session");
+      }
+
+      // Redirect user to Paystack hosted checkout
+      window.location.href = data.paymentUrl;
+    } catch (err) {
+      setPaymentError(err instanceof Error ? err.message : "Payment failed. Please try again.");
+      setPaymentLoading(false);
+    }
+  }, [paywallEmail]);
 
   const copy = (text: string, i: number) => {
     navigator.clipboard.writeText(text);
@@ -76,6 +190,16 @@ function Index() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {justPaid && (
+        <div className="flex items-center justify-center gap-2 bg-primary py-2 text-center text-xs font-bold text-primary-foreground animate-in fade-in slide-in-from-top-4 duration-500">
+          <CheckCircle2 className="h-4 w-4" />
+          Upgrade Successful! You now have unlimited access to TitleForge Pro.
+          <button onClick={() => setJustPaid(false)} className="ml-4 opacity-70 hover:opacity-100">
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )}
+
       <div
         className="relative overflow-hidden"
         style={{ backgroundImage: "var(--grad-hero)" }}
@@ -88,7 +212,15 @@ function Index() {
             >
               <FileText className="h-4 w-4 text-background" strokeWidth={2.5} />
             </div>
-            <span className="text-lg font-bold tracking-tight">TitleForge</span>
+            <div className="flex flex-col">
+              <span className="text-lg font-bold tracking-tight">TitleForge</span>
+              {subscribed && (
+                <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-primary">
+                  <Crown className="h-2.5 w-2.5" />
+                  Pro Member
+                </span>
+              )}
+            </div>
           </div>
           <span className="text-xs text-muted-foreground">Powered by demand signals</span>
         </header>
@@ -291,6 +423,16 @@ function Index() {
         isLoading={outlineMutation.isPending}
         error={outlineMutation.error as Error | null}
       />
+
+      <PaywallDialog
+        open={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        email={paywallEmail}
+        setEmail={setPaywallEmail}
+        onUpgrade={handleUpgrade}
+        isLoading={paymentLoading}
+        error={paymentError}
+      />
     </div>
   );
 }
@@ -471,3 +613,114 @@ function OutlineDialog({
     </Dialog>
   );
 }
+
+function PaywallDialog({
+  open,
+  onClose,
+  email,
+  setEmail,
+  onUpgrade,
+  isLoading,
+  error,
+}: {
+  open: boolean;
+  onClose: () => void;
+  email: string;
+  setEmail: (e: string) => void;
+  onUpgrade: () => void;
+  isLoading: boolean;
+  error: string | null;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-[440px]">
+        <div className="relative flex flex-col items-center text-center">
+          <button 
+            onClick={onClose}
+            className="absolute -right-2 -top-2 rounded-full bg-secondary p-1 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+
+          <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <Lock className="h-8 w-8" />
+          </div>
+
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">Unlock Unlimited Ideas</DialogTitle>
+            <DialogDescription className="mt-2 text-balance text-muted-foreground">
+              You've used your free generation. Upgrade to TitleForge Pro to keep forging high-converting lead magnets.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="my-8 w-full space-y-4 rounded-2xl border border-border bg-secondary/30 p-6 text-left">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-muted-foreground">Pro Plan</span>
+              <span className="flex items-baseline gap-1">
+                <span className="text-2xl font-bold text-foreground">$2</span>
+                <span className="text-xs text-muted-foreground">/mo</span>
+              </span>
+            </div>
+            
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center gap-3 text-sm">
+                <CheckCircle2 className="h-4 w-4 text-primary" />
+                <span>Unlimited title generations</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <CheckCircle2 className="h-4 w-4 text-primary" />
+                <span>Unlimited chapter outlines</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <CheckCircle2 className="h-4 w-4 text-primary" />
+                <span>Future premium features included</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="w-full space-y-4">
+            <div className="space-y-2 text-left">
+              <label htmlFor="p-email" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Email for account
+              </label>
+              <Input
+                id="p-email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-11"
+              />
+            </div>
+
+            {error && <p className="text-xs font-medium text-destructive">{error}</p>}
+
+            <Button
+              onClick={onUpgrade}
+              disabled={isLoading || !email.includes("@")}
+              className="h-12 w-full text-base font-bold text-primary-foreground"
+              style={{ background: "var(--grad-accent)" }}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Securing session...
+                </>
+              ) : (
+                <>
+                  <Crown className="mr-2 h-5 w-5" />
+                  Upgrade for $2/month
+                </>
+              )}
+            </Button>
+            
+            <p className="text-[10px] text-muted-foreground">
+              Secure payments powered by Paystack. Cancel anytime.
+            </p>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
