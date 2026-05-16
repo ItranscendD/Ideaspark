@@ -131,3 +131,31 @@ export async function verifyWebhookSignature(
   }
   return diff === 0;
 }
+
+/** ---------------------------------------------------------------------------
+ * Check if a customer has an active subscription by email.
+ * This allows "restoring" access without a central database.
+ * ---------------------------------------------------------------------------*/
+export async function checkCustomerSubscription(email: string): Promise<boolean> {
+  const secretKey = process.env.PAYSTACK_SECRET_KEY;
+  if (!secretKey) throw new Error("PAYSTACK_SECRET_KEY is not configured");
+
+  const res = await fetch(`${PAYSTACK_BASE}/subscription?customer=${encodeURIComponent(email)}`, {
+    headers: { Authorization: `Bearer ${secretKey}` },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Paystack subscription check failed (${res.status}): ${text}`);
+  }
+
+  const json = (await res.json()) as {
+    status: boolean;
+    data: Array<{ status: string }>;
+  };
+
+  if (!json.status) return false;
+
+  // Check if any subscription for this customer is "active"
+  return json.data.some((sub) => sub.status === "active" || sub.status === "non-renewing");
+}

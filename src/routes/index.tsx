@@ -329,6 +329,41 @@ function Index() {
     }
   }, [paywallEmail]);
 
+  const handleRestore = useCallback(async () => {
+    if (!paywallEmail || !paywallEmail.includes("@")) {
+      setPaymentError("Enter your subscription email to restore access");
+      return;
+    }
+
+    setPaymentLoading(true);
+    setPaymentError(null);
+
+    try {
+      const res = await fetch("/api/payment/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: paywallEmail }),
+      });
+
+      const data = (await res.json()) as { subscribed: boolean; error?: string };
+
+      if (!res.ok) throw new Error(data.error ?? "Restore check failed");
+
+      if (data.subscribed) {
+        localStorage.setItem(LS_SUBSCRIBED, "true");
+        localStorage.setItem(LS_EMAIL, paywallEmail);
+        setJustPaid(true);
+        setShowPaywall(false);
+      } else {
+        setPaymentError("No active subscription found for this email");
+      }
+    } catch (err) {
+      setPaymentError(err instanceof Error ? err.message : "Restore failed");
+    } finally {
+      setPaymentLoading(false);
+    }
+  }, [paywallEmail]);
+
   const copy = (text: string, i: number) => {
     navigator.clipboard.writeText(text);
     setCopied(i);
@@ -840,6 +875,7 @@ function Index() {
         email={paywallEmail}
         setEmail={setPaywallEmail}
         onUpgrade={handleUpgrade}
+        onRestore={handleRestore}
         isLoading={paymentLoading}
         error={paymentError}
       />
@@ -1218,6 +1254,7 @@ function PaywallDialog({
   email: string;
   setEmail: (e: string) => void;
   onUpgrade: () => void;
+  onRestore: () => void;
   isLoading: boolean;
   error: string | null;
 }) {
@@ -1285,24 +1322,35 @@ function PaywallDialog({
 
             {error && <p className="text-xs font-medium text-destructive">{error}</p>}
 
-            <Button
-              onClick={onUpgrade}
-              disabled={isLoading || !email.includes("@")}
-              className="h-12 w-full text-base font-bold text-primary-foreground"
-              style={{ background: "var(--grad-accent)" }}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Securing session...
-                </>
-              ) : (
-                <>
-                  <Crown className="mr-2 h-5 w-5" />
-                  Upgrade for $2/month
-                </>
-              )}
-            </Button>
+            <div className="space-y-2">
+              <Button
+                onClick={onUpgrade}
+                disabled={isLoading || !email.includes("@")}
+                className="h-12 w-full text-base font-bold text-primary-foreground"
+                style={{ background: "var(--grad-accent)" }}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Securing session...
+                  </>
+                ) : (
+                  <>
+                    <Crown className="mr-2 h-5 w-5" />
+                    Upgrade for $2/month
+                  </>
+                )}
+              </Button>
+              
+              <Button
+                onClick={onRestore}
+                disabled={isLoading || !email.includes("@")}
+                variant="ghost"
+                className="h-10 w-full text-xs font-bold text-muted-foreground hover:text-primary"
+              >
+                Already subscribed? Restore access
+              </Button>
+            </div>
             
             <p className="text-[10px] text-muted-foreground">
               Secure payments powered by Paystack. Cancel anytime.
