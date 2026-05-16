@@ -2,7 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation } from "@tanstack/react-query";
 import { useState, useEffect, useCallback } from "react";
-import { generateTitles, generateOutline, type TitleIdea, type Outline } from "@/lib/titles.functions";
+import {
+  generateTitles,
+  generateOutline,
+  generateSalesCopy,
+  type TitleIdea,
+  type Outline,
+  type SalesCopy,
+  type SocialPost
+} from "@/lib/titles.functions";
 import { FREE_GENERATION_LIMIT } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,8 +41,24 @@ import {
   DollarSign,
   AlertCircle,
   MapPin,
-  Globe
+  Globe,
+  Plus,
+  Trash2,
+  Rocket,
+  Clock,
+  CheckCircle,
+  MessageSquare
 } from "lucide-react";
+
+// ── Vault Types ─────────────────────────────────────────────────────────────
+export type VaultStatus = "Saved" | "In Progress" | "Published";
+
+export type VaultIdea = {
+  id: string;
+  idea: TitleIdea;
+  status: VaultStatus;
+  savedAt: number;
+};
 import {
   Dialog,
   DialogContent,
@@ -71,6 +95,7 @@ const AUDIENCE_PRESETS = [
 const LS_GEN_COUNT = "tf_gen_count";
 const LS_SUBSCRIBED = "tf_subscribed";
 const LS_EMAIL = "tf_email";
+const LS_VAULT = "tf_vault";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -85,6 +110,16 @@ export const Route = createFileRoute("/")({
     ],
   }),
 });
+
+// ── Vault state helpers ────────────────────────────────────────────────────
+function getVault(): VaultIdea[] {
+  try { return JSON.parse(localStorage.getItem(LS_VAULT) ?? "[]"); }
+  catch { return []; }
+}
+function saveVault(v: VaultIdea[]) {
+  try { localStorage.setItem(LS_VAULT, JSON.stringify(v)); }
+  catch { /* SSR */ }
+}
 
 // ── Subscription state helpers ─────────────────────────────────────────────
 function getGenCount(): number {
@@ -113,6 +148,43 @@ function Index() {
   const [sortBy, setSortBy] = useState<"trend" | "demand" | "volume" | "intent" | "comp" | "conv">("trend");
   const [filterFormat, setFilterFormat] = useState("All");
   const [filterAudience, setFilterAudience] = useState("All");
+
+  // Vault State
+  const [vault, setVault] = useState<VaultIdea[]>([]);
+  const [showVault, setShowVault] = useState(false);
+
+  // Sales Copy State
+  const [salesCopyFor, setSalesCopyFor] = useState<TitleIdea | null>(null);
+
+  useEffect(() => {
+    setVault(getVault());
+  }, []);
+
+  const saveToVault = (idea: TitleIdea) => {
+    const newVault = [
+      {
+        id: Math.random().toString(36).substring(7),
+        idea,
+        status: "Saved" as VaultStatus,
+        savedAt: Date.now(),
+      },
+      ...vault,
+    ];
+    setVault(newVault);
+    saveVault(newVault);
+  };
+
+  const updateVaultStatus = (id: string, status: VaultStatus) => {
+    const newVault = vault.map((v) => (v.id === id ? { ...v, status } : v));
+    setVault(newVault);
+    saveVault(newVault);
+  };
+
+  const removeFromVault = (id: string) => {
+    const newVault = vault.filter((v) => v.id !== id);
+    setVault(newVault);
+    saveVault(newVault);
+  };
 
   // Paywall state
   const [showPaywall, setShowPaywall] = useState(false);
@@ -187,6 +259,24 @@ function Index() {
     setOutlineFor(idea);
     outlineMutation.reset();
     outlineMutation.mutate(idea);
+  };
+
+  const salesCopyMutation = useMutation({
+    mutationFn: (idea: TitleIdea) =>
+      generateSalesCopy({
+        data: {
+          title: idea.title,
+          hook: idea.hook,
+          audience: idea.audience,
+          price: idea.price_usd,
+        },
+      }),
+  });
+
+  const openSalesCopy = (idea: TitleIdea) => {
+    setSalesCopyFor(idea);
+    salesCopyMutation.reset();
+    salesCopyMutation.mutate(idea);
   };
 
   // ── Submit with paywall gate ───────────────────────────────────────────────
@@ -301,7 +391,28 @@ function Index() {
               )}
             </div>
           </div>
-          <span className="text-xs text-muted-foreground">Powered by demand signals</span>
+          
+          <nav className="flex items-center gap-1 rounded-full border border-border bg-secondary/50 p-1">
+            <button
+              onClick={() => setShowVault(false)}
+              className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold transition ${!showVault ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <Zap className="h-3.5 w-3.5" />
+              Discover
+            </button>
+            <button
+              onClick={() => setShowVault(true)}
+              className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold transition ${showVault ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <ShoppingBag className="h-3.5 w-3.5" />
+              My Vault
+              {vault.length > 0 && (
+                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[9px] text-primary-foreground">
+                  {vault.length}
+                </span>
+              )}
+            </button>
+          </nav>
         </header>
 
         <section className="mx-auto max-w-4xl px-6 pb-20 pt-16 text-center md:pt-28">
@@ -434,206 +545,279 @@ function Index() {
       </div>
 
       <main className="mx-auto max-w-6xl px-6 pb-24">
-        {mutation.data?.ideas && (
-          <div className="space-y-8">
-            {/* Sort & Filter Bar */}
-            <div className="sticky top-4 z-10 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-card/80 p-3 backdrop-blur-xl shadow-premium">
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2 px-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                  <Filter className="h-3.5 w-3.5" />
-                  Filter:
-                </div>
-                <Select value={filterFormat} onValueChange={setFilterFormat}>
-                  <SelectTrigger className="h-9 w-[130px] bg-secondary/50">
-                    <SelectValue placeholder="Format" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {formats.map((f) => (
-                      <SelectItem key={f} value={f}>{f}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={filterAudience} onValueChange={setFilterAudience}>
-                  <SelectTrigger className="h-9 w-[150px] bg-secondary/50">
-                    <SelectValue placeholder="Audience" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {audiences.map((a) => (
-                      <SelectItem key={a} value={a}>{a}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+        {!showVault ? (
+          <>
+            {mutation.data?.ideas && (
+              <div className="space-y-8">
+                {/* Sort & Filter Bar ... (keep existing) */}
+                <div className="sticky top-4 z-10 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-card/80 p-3 backdrop-blur-xl shadow-premium">
+                  {/* ... contents of sort/filter bar ... */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2 px-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                      <Filter className="h-3.5 w-3.5" />
+                      Filter:
+                    </div>
+                    <Select value={filterFormat} onValueChange={setFilterFormat}>
+                      <SelectTrigger className="h-9 w-[130px] bg-secondary/50">
+                        <SelectValue placeholder="Format" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {formats.map((f) => (
+                          <SelectItem key={f} value={f}>{f}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={filterAudience} onValueChange={setFilterAudience}>
+                      <SelectTrigger className="h-9 w-[150px] bg-secondary/50">
+                        <SelectValue placeholder="Audience" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {audiences.map((a) => (
+                          <SelectItem key={a} value={a}>{a}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 px-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                  <SortAsc className="h-3.5 w-3.5" />
-                  Sort:
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 px-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                      <SortAsc className="h-3.5 w-3.5" />
+                      Sort:
+                    </div>
+                    <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+                      <SelectTrigger className="h-9 w-[140px] bg-primary/10 font-semibold text-primary">
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="trend">Composite Trend</SelectItem>
+                        <SelectItem value="demand">Active Demand</SelectItem>
+                        <SelectItem value="volume">Search Volume</SelectItem>
+                        <SelectItem value="intent">Buyer Intent</SelectItem>
+                        <SelectItem value="comp">Lowest Comp.</SelectItem>
+                        <SelectItem value="conv">Opt-in Potential</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
-                  <SelectTrigger className="h-9 w-[140px] bg-primary/10 font-semibold text-primary">
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="trend">Composite Trend</SelectItem>
-                    <SelectItem value="demand">Active Demand</SelectItem>
-                    <SelectItem value="volume">Search Volume</SelectItem>
-                    <SelectItem value="intent">Buyer Intent</SelectItem>
-                    <SelectItem value="comp">Lowest Comp.</SelectItem>
-                    <SelectItem value="conv">Opt-in Potential</SelectItem>
-                  </SelectContent>
-                </Select>
+
+                {/* Results Grid */}
+                {filteredIdeas.length > 0 ? (
+                  <div className="grid gap-6 md:grid-cols-2">
+                    {filteredIdeas.map((idea: TitleIdea, i: number) => {
+                      const isSaved = vault.some((v) => v.idea.title === idea.title);
+                      return (
+                        <article
+                          key={i}
+                          className="group relative flex flex-col gap-4 rounded-3xl border border-border bg-card p-7 transition-all hover:border-primary/40 hover:shadow-premium"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="secondary" className="rounded-full bg-secondary text-[10px] uppercase tracking-wider font-bold">
+                                {idea.format}
+                              </Badge>
+                              <TrendBadge score={idea.trend_score} />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                onClick={() => !isSaved && saveToVault(idea)}
+                                variant="outline"
+                                size="sm"
+                                disabled={isSaved}
+                                className={`h-8 rounded-full border-primary/20 px-3 text-[10px] font-bold uppercase tracking-wider ${isSaved ? "bg-primary/10 text-primary border-primary/30" : "hover:bg-primary/5 hover:text-primary"}`}
+                              >
+                                {isSaved ? (
+                                  <><Check className="mr-1.5 h-3 w-3" /> Saved</>
+                                ) : (
+                                  <><Plus className="mr-1.5 h-3 w-3" /> Save to Vault</>
+                                )}
+                              </Button>
+                              <button
+                                onClick={() => copy(idea.title, i)}
+                                className="rounded-full bg-secondary/50 p-2 text-muted-foreground transition hover:bg-primary/10 hover:text-primary"
+                                aria-label="Copy title"
+                              >
+                                {copied === i ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <h3 className="text-2xl font-extrabold leading-tight tracking-tight text-foreground">{idea.title}</h3>
+                            <p className="text-base italic text-muted-foreground">"{idea.hook}"</p>
+                          </div>
+
+                          <ScoreBars
+                            demand={idea.demand_score}
+                            volume={idea.volume_score}
+                            intent={idea.intent_score}
+                            competition={idea.competition_score}
+                            conversion={idea.conversion_score}
+                            rationale={idea.score_rationale}
+                          />
+
+                          <div className="grid gap-3 rounded-2xl border border-border bg-secondary/20 p-4">
+                            <div className="flex flex-col gap-2">
+                              <div className="flex items-center justify-between">
+                                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                                  <ShoppingBag className="h-3 w-3" />
+                                  Marketplace Audit
+                                </span>
+                                <DensityBadge density={idea.density} />
+                              </div>
+                              <p className="text-xs text-foreground leading-snug">{idea.marketplace_data}</p>
+                            </div>
+                            <div className="flex items-center justify-between border-t border-border pt-2">
+                              <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                                <DollarSign className="h-3.5 w-3.5" />
+                                Suggested Pricing
+                              </span>
+                              <div className="flex items-center gap-3">
+                                <div className="text-xs font-bold text-primary">{idea.price_usd} <span className="opacity-60 font-medium">USD</span></div>
+                                <div className="text-xs font-bold text-accent">{idea.price_ngn} <span className="opacity-60 font-medium">NGN</span></div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-auto space-y-3 border-t border-border pt-5 text-[13px]">
+                            <Row icon={<Users className="h-4 w-4 text-primary" />} label="Audience" value={idea.audience} />
+                            <Row icon={<TrendingUp className="h-4 w-4 text-primary" />} label="Demand Signal" value={idea.search_signal} />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3 pt-2">
+                            <Button
+                              onClick={() => openOutline(idea)}
+                              variant="outline"
+                              className="h-10 rounded-xl border-primary/20 text-[11px] font-bold uppercase tracking-wider hover:bg-primary/5"
+                            >
+                              <BookOpen className="mr-2 h-3.5 w-3.5 text-primary" />
+                              Outline
+                            </Button>
+                            <Button
+                              onClick={() => openSalesCopy(idea)}
+                              variant="outline"
+                              className="h-10 rounded-xl border-accent/20 text-[11px] font-bold uppercase tracking-wider hover:bg-accent/5"
+                            >
+                              <MessageSquare className="mr-2 h-3.5 w-3.5 text-accent" />
+                              Marketing
+                            </Button>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-border py-20 text-center">
+                    <div className="mb-4 rounded-full bg-secondary p-4">
+                      <Filter className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-xl font-bold">No ideas match these filters</h3>
+                    <p className="mt-1 text-muted-foreground">Try clearing your filters or generating more ideas.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!mutation.data && !mutation.isPending && (
+              <div className="grid gap-6 rounded-3xl border border-border bg-card p-10 md:grid-cols-3 shadow-premium">
+                <Feature icon={<TrendingUp className="h-6 w-6 text-primary" />} title="Demand-grounded" text="Every idea is verified against live search signals from Google, Reddit & YouTube." />
+                <Feature icon={<Target className="h-6 w-6 text-primary" />} title="Audience-specific" text="Target exact segments like 'pastors' or 'Nigerian moms' for high resonance." />
+                <Feature icon={<Zap className="h-6 w-6 text-primary" />} title="High Intent" text="Identify ideas with commercial intent so you build what actually sells." />
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex items-center justify-between border-b border-border pb-6">
+              <div>
+                <h2 className="text-3xl font-bold tracking-tight">My Idea Vault</h2>
+                <p className="text-muted-foreground">Organize and execute your high-demand product ideas.</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex flex-col items-end text-right">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Workspace Stats</span>
+                  <div className="flex gap-4">
+                    <span className="text-sm font-bold">{vault.length} <span className="font-normal text-muted-foreground">Ideas</span></span>
+                    <span className="text-sm font-bold text-primary">{vault.filter(v => v.status === "Published").length} <span className="font-normal text-muted-foreground">Live</span></span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Results Grid */}
-            {filteredIdeas.length > 0 ? (
+            {vault.length > 0 ? (
               <div className="grid gap-6 md:grid-cols-2">
-                {filteredIdeas.map((idea: TitleIdea, i: number) => (
+                {vault.map((v) => (
                   <article
-                    key={i}
-                    className="group relative flex flex-col gap-4 rounded-3xl border border-border bg-card p-7 transition-all hover:border-primary/40 hover:shadow-premium"
+                    key={v.id}
+                    className="group relative flex flex-col gap-4 rounded-3xl border border-border bg-card p-7 transition-all hover:border-primary/40"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="secondary" className="rounded-full bg-secondary text-[10px] uppercase tracking-wider font-bold">
-                          {idea.format}
-                        </Badge>
-                        <TrendBadge score={idea.trend_score} />
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <StatusBadge status={v.status} />
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Saved {new Date(v.savedAt).toLocaleDateString()}</span>
                       </div>
-                      <button
-                        onClick={() => copy(idea.title, i)}
-                        className="rounded-full bg-secondary/50 p-2 text-muted-foreground transition hover:bg-primary/10 hover:text-primary"
-                        aria-label="Copy title"
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 rounded-full p-0">
+                            <Filter className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-[160px]">
+                          <DropdownMenuLabel>Change Status</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => updateVaultStatus(v.id, "Saved")}>
+                            <Clock className="mr-2 h-4 w-4 text-muted-foreground" /> Saved
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => updateVaultStatus(v.id, "In Progress")}>
+                            <Rocket className="mr-2 h-4 w-4 text-primary" /> In Progress
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => updateVaultStatus(v.id, "Published")}>
+                            <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Published
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => removeFromVault(v.id)} className="text-destructive">
+                            <Trash2 className="mr-2 h-4 w-4" /> Remove from Vault
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    <h3 className="text-2xl font-bold leading-tight">{v.idea.title}</h3>
+                    
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="secondary" className="rounded-full bg-secondary text-[10px] uppercase tracking-wider font-bold">{v.idea.format}</Badge>
+                      <DensityBadge density={v.idea.density} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 pt-4">
+                      <Button
+                        onClick={() => openOutline(v.idea)}
+                        className="h-11 rounded-xl bg-secondary text-foreground hover:bg-secondary/80 font-bold"
                       >
-                        {copied === i ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                      </button>
+                        <BookOpen className="mr-2 h-4 w-4 text-primary" />
+                        Outline
+                      </Button>
+                      <Button
+                        onClick={() => openSalesCopy(v.idea)}
+                        className="h-11 rounded-xl bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20"
+                      >
+                        <Rocket className="mr-2 h-4 w-4" />
+                        Draft Assets
+                      </Button>
                     </div>
-
-                    <div className="space-y-2">
-                      <h3 className="text-2xl font-extrabold leading-tight tracking-tight text-foreground">{idea.title}</h3>
-                      <p className="text-base italic text-muted-foreground">"{idea.hook}"</p>
-                    </div>
-
-                    <ScoreBars
-                      demand={idea.demand_score}
-                      volume={idea.volume_score}
-                      intent={idea.intent_score}
-                      competition={idea.competition_score}
-                      conversion={idea.conversion_score}
-                      rationale={idea.score_rationale}
-                    />
-
-                    {/* Marketplace & Pricing Layer */}
-                    <div className="grid gap-3 rounded-2xl border border-border bg-secondary/20 p-4">
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center justify-between">
-                          <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                            <ShoppingBag className="h-3 w-3" />
-                            Marketplace Audit
-                          </span>
-                          <DensityBadge density={idea.density} />
-                        </div>
-                        <p className="text-xs text-foreground leading-snug">{idea.marketplace_data}</p>
-                      </div>
-                      
-                      <div className="flex items-center justify-between border-t border-border pt-2">
-                        <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                          <DollarSign className="h-3.5 w-3.5" />
-                          Suggested Pricing
-                        </span>
-                        <div className="flex items-center gap-3">
-                          <div className="text-xs font-bold text-primary">{idea.price_usd} <span className="opacity-60 font-medium">USD</span></div>
-                          <div className="text-xs font-bold text-accent">{idea.price_ngn} <span className="opacity-60 font-medium">NGN</span></div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-auto space-y-3 border-t border-border pt-5 text-[13px]">
-                      <Row icon={<Users className="h-4 w-4 text-primary" />} label="Audience" value={idea.audience} />
-                      <Row
-                        icon={<TrendingUp className="h-4 w-4 text-primary" />}
-                        label="Demand Signal"
-                        value={idea.search_signal}
-                      />
-                      <Row
-                        icon={<Sparkles className="h-4 w-4 text-primary" />}
-                        label="Conversion Logic"
-                        value={idea.conversion_angle}
-                      />
-                      
-                      {idea.sources?.length > 0 && (
-                        <div className="flex gap-2.5 pt-1">
-                          <span className="mt-0.5 text-primary/60"><Link2 className="h-4 w-4" /></span>
-                          <div className="flex-1">
-                            <span className="font-bold text-foreground">Verified at: </span>
-                            <span className="text-muted-foreground">
-                              {idea.sources.map((s, j) => {
-                                const url = s.startsWith("http") ? s : `https://${s.replace(/^\/+/, "")}`;
-                                return (
-                                  <a
-                                    key={j}
-                                    href={url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="mr-2 underline decoration-primary/30 decoration-dotted underline-offset-4 hover:text-primary"
-                                  >
-                                    {s.split('/')[0]}
-                                  </a>
-                                );
-                              })}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <Button
-                      onClick={() => openOutline(idea)}
-                      variant="outline"
-                      className="mt-2 h-12 w-full justify-between rounded-xl border-primary/20 hover:border-primary/50 hover:bg-primary/5"
-                    >
-                      <span className="flex items-center gap-2 text-sm font-bold">
-                        <BookOpen className="h-4 w-4 text-primary" />
-                        Build Full PDF Outline
-                      </span>
-                      <ArrowRight className="h-4 w-4 text-primary" />
-                    </Button>
                   </article>
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-border py-20 text-center">
-                <div className="mb-4 rounded-full bg-secondary p-4">
-                  <Filter className="h-8 w-8 text-muted-foreground" />
+              <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-border py-32 text-center bg-secondary/5">
+                <div className="mb-6 rounded-2xl bg-secondary p-6">
+                  <Plus className="h-10 w-10 text-muted-foreground" />
                 </div>
-                <h3 className="text-xl font-bold">No ideas match these filters</h3>
-                <p className="mt-1 text-muted-foreground">Try clearing your filters or generating more ideas.</p>
-                <Button variant="link" onClick={() => { setFilterFormat("All"); setFilterAudience("All"); }} className="mt-2">
-                  Clear all filters
+                <h3 className="text-2xl font-bold">Your vault is empty</h3>
+                <p className="mt-2 max-w-sm text-muted-foreground">Save your favorite high-demand ideas here to track your progress from idea to published product.</p>
+                <Button onClick={() => setShowVault(false)} className="mt-8 h-12 px-8 font-bold" style={{ background: "var(--grad-accent)" }}>
+                  Discover New Ideas
                 </Button>
               </div>
             )}
-          </div>
-        )}
-
-        {!mutation.data && !mutation.isPending && (
-          <div className="grid gap-6 rounded-3xl border border-border bg-card p-10 md:grid-cols-3 shadow-premium">
-            <Feature
-              icon={<TrendingUp className="h-6 w-6 text-primary" />}
-              title="Demand-grounded"
-              text="Every idea is verified against live search signals from Google, Reddit & YouTube."
-            />
-            <Feature
-              icon={<Target className="h-6 w-6 text-primary" />}
-              title="Audience-specific"
-              text="Target exact segments like 'pastors' or 'Nigerian moms' for high resonance."
-            />
-            <Feature
-              icon={<Zap className="h-6 w-6 text-primary" />}
-              title="High Intent"
-              text="Identify ideas with commercial intent so you build what actually sells."
-            />
           </div>
         )}
       </main>
@@ -658,6 +842,13 @@ function Index() {
         onUpgrade={handleUpgrade}
         isLoading={paymentLoading}
         error={paymentError}
+      />
+
+      <SalesCopyDialog
+        idea={salesCopyFor}
+        onClose={() => setSalesCopyFor(null)}
+        copy={salesCopyMutation.data}
+        isLoading={salesCopyMutation.isPending}
       />
     </div>
   );
@@ -684,6 +875,135 @@ function Feature({ icon, title, text }: { icon: React.ReactNode; title: string; 
       <h3 className="mb-1 font-semibold">{title}</h3>
       <p className="text-sm text-muted-foreground">{text}</p>
     </div>
+  );
+}
+
+function StatusBadge({ status }: { status: VaultStatus }) {
+  if (status === "Published") {
+    return (
+      <span className="flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-1 text-[10px] font-bold text-green-700 border border-green-200">
+        <CheckCircle className="h-3 w-3" /> Published
+      </span>
+    );
+  }
+  if (status === "In Progress") {
+    return (
+      <span className="flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold text-primary border border-primary/20">
+        <Rocket className="h-3 w-3" /> In Progress
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-[10px] font-bold text-muted-foreground border border-border">
+      <Clock className="h-3 w-3" /> Saved
+    </span>
+  );
+}
+
+function SalesCopyDialog({
+  idea,
+  onClose,
+  copy,
+  isLoading,
+}: {
+  idea: TitleIdea | null;
+  onClose: () => void;
+  copy: SalesCopy | undefined;
+  isLoading: boolean;
+}) {
+  const [activeTab, setActiveTab] = useState<"page" | "social">("page");
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const handleCopy = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  return (
+    <Dialog open={!!idea} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Rocket className="h-5 w-5 text-primary" />
+            Marketing Assets
+          </DialogTitle>
+          <DialogDescription>
+            One-click sales copy and social posts for: <span className="font-bold text-foreground">{idea?.title}</span>
+          </DialogDescription>
+        </DialogHeader>
+
+        {isLoading && (
+          <div className="flex flex-col items-center gap-4 py-16 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm font-medium">Drafting high-converting copy using AIDA framework...</p>
+          </div>
+        )}
+
+        {copy && !isLoading && (
+          <div className="space-y-6">
+            <div className="flex gap-2 rounded-xl border border-border bg-secondary/30 p-1">
+              <button
+                onClick={() => setActiveTab("page")}
+                className={`flex-1 rounded-lg py-2 text-xs font-bold transition ${activeTab === "page" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Product Page (Selar/Gumroad)
+              </button>
+              <button
+                onClick={() => setActiveTab("social")}
+                className={`flex-1 rounded-lg py-2 text-xs font-bold transition ${activeTab === "social" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Social Media Posts
+              </button>
+            </div>
+
+            {activeTab === "page" ? (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+                  <div className="mb-4 flex items-center justify-between border-b border-border pb-4">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Landing Page Headline</span>
+                    <Button variant="ghost" size="sm" onClick={() => handleCopy(copy.headline, "h")}>
+                      {copied === "h" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    </Button>
+                  </div>
+                  <h3 className="text-2xl font-extrabold leading-tight">{copy.headline}</h3>
+                </div>
+
+                <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+                  <div className="mb-4 flex items-center justify-between border-b border-border pb-4">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Product Description</span>
+                    <Button variant="ghost" size="sm" onClick={() => handleCopy(copy.description, "d")}>
+                      {copied === "d" ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+                      <span className="ml-2">Copy All</span>
+                    </Button>
+                  </div>
+                  <div className="prose prose-sm max-w-none text-foreground whitespace-pre-wrap font-medium leading-relaxed">
+                    {copy.description}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {copy.social_posts.map((post, i) => (
+                  <div key={i} className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+                    <div className="mb-4 flex items-center justify-between border-b border-border pb-4">
+                      <span className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                        <MessageSquare className="h-3 w-3" />
+                        {post.platform}
+                      </span>
+                      <Button variant="ghost" size="sm" onClick={() => handleCopy(post.content, `s-${i}`)}>
+                        {copied === `s-${i}` ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
+                    <p className="text-sm font-medium leading-relaxed">{post.content}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -247,3 +247,97 @@ Make it tactical and fluff-free.`;
     const parsed = typeof args === "string" ? JSON.parse(args) : args;
     return parsed as Outline;
   });
+
+export type SocialPost = {
+  platform: string;
+  content: string;
+};
+
+export type SalesCopy = {
+  headline: string;
+  description: string;
+  social_posts: SocialPost[];
+};
+
+export const generateSalesCopy = createServerFn({ method: "POST" })
+  .inputValidator((data: { title: string; hook: string; audience: string; price?: string }) => {
+    if (!data?.title) throw new Error("title required");
+    return {
+      title: data.title,
+      hook: data.hook,
+      audience: data.audience,
+      price: data.price,
+    };
+  })
+  .handler(async ({ data }) => {
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
+
+    const system = `You are a world-class direct-response copywriter specializing in digital products for Selar, Gumroad, and Etsy. You use frameworks like AIDA and PAS to drive conversions. Return ONLY valid JSON matching the schema.`;
+
+    const user = `Draft high-converting sales copy for this PDF product.
+Title: ${data.title}
+Hook: ${data.hook}
+Target Audience: ${data.audience}
+${data.price ? `Suggested Price: ${data.price}` : ""}
+
+Return:
+- headline: A magnetic H1 for a landing page.
+- description: A 300-word product description (Markdown). Include: The Problem, The Solution (this PDF), 3-5 benefit bullets, and a Call to Action.
+- social_posts: 3 distinct posts:
+  1. Twitter/X (Short, punchy, curiosity-driven)
+  2. Instagram/Facebook (Story-driven, emoji-rich)
+  3. LinkedIn (Professional, value-first, problem-solution)
+
+Format: Valid JSON.`;
+
+    const schema = {
+      type: "object",
+      properties: {
+        headline: { type: "string" },
+        description: { type: "string" },
+        social_posts: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              platform: { type: "string" },
+              content: { type: "string" },
+            },
+            required: ["platform", "content"],
+          },
+        },
+      },
+      required: ["headline", "description", "social_posts"],
+    };
+
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-pro",
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: { name: "return_copy", description: "Return sales copy", parameters: schema },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "return_copy" } },
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`AI gateway error ${res.status}: ${text}`);
+    }
+
+    const json = await res.json();
+    const args = json?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    if (!args) throw new Error("No response from AI");
+    const parsed = typeof args === "string" ? JSON.parse(args) : args;
+    return parsed as SalesCopy;
+  });
