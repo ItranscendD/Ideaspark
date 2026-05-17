@@ -655,7 +655,12 @@ function Index() {
                       <SortAsc className="h-3.5 w-3.5" />
                       Sort:
                     </div>
-                    <Select value={sortBy} onValueChange={(v: string) => setSortBy(v)}>
+                    <Select
+                      value={sortBy}
+                      onValueChange={(v) =>
+                        setSortBy(v as "demand" | "volume" | "intent" | "trend" | "comp" | "conv")
+                      }
+                    >
                       <SelectTrigger className="h-9 w-[140px] bg-primary/10 font-semibold text-primary">
                         <SelectValue placeholder="Sort by" />
                       </SelectTrigger>
@@ -1407,6 +1412,7 @@ function PaywallDialog({
   email,
   setEmail,
   onUpgrade,
+  onRestore,
   isLoading,
   error,
 }: {
