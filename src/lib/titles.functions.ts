@@ -22,15 +22,17 @@ export type TitleIdea = {
 };
 
 export const generateTitles = createServerFn({ method: "POST" })
-  .inputValidator((data: { topic: string; audience?: string; keywords?: string; intent?: string }) => {
-    if (!data?.topic || typeof data.topic !== "string") throw new Error("topic required");
-    return {
-      topic: data.topic.slice(0, 300),
-      audience: (data.audience ?? "").slice(0, 200),
-      keywords: (data.keywords ?? "").slice(0, 300),
-      intent: (data.intent ?? "").slice(0, 200),
-    };
-  })
+  .inputValidator(
+    (data: { topic: string; audience?: string; keywords?: string; intent?: string }) => {
+      if (!data?.topic || typeof data.topic !== "string") throw new Error("topic required");
+      return {
+        topic: data.topic.slice(0, 300),
+        audience: (data.audience ?? "").slice(0, 200),
+        keywords: (data.keywords ?? "").slice(0, 300),
+        intent: (data.intent ?? "").slice(0, 200),
+      };
+    },
+  )
   .handler(async ({ data }) => {
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
@@ -94,7 +96,26 @@ Vary formats. Avoid generic titles. Be specific with numbers, timeframes, and ou
               score_rationale: { type: "string" },
               sources: { type: "array", items: { type: "string" } },
             },
-            required: ["title", "hook", "audience", "search_signal", "conversion_angle", "format", "trend_score", "demand_score", "volume_score", "intent_score", "competition_score", "conversion_score", "density", "marketplace_data", "price_usd", "price_ngn", "score_rationale", "sources"],
+            required: [
+              "title",
+              "hook",
+              "audience",
+              "search_signal",
+              "conversion_angle",
+              "format",
+              "trend_score",
+              "demand_score",
+              "volume_score",
+              "intent_score",
+              "competition_score",
+              "conversion_score",
+              "density",
+              "marketplace_data",
+              "price_usd",
+              "price_ngn",
+              "score_rationale",
+              "sources",
+            ],
           },
         },
       },
@@ -159,16 +180,24 @@ export type Outline = {
 };
 
 export const generateOutline = createServerFn({ method: "POST" })
-  .inputValidator((data: { title: string; hook?: string; audience?: string; format?: string; angle?: string }) => {
-    if (!data?.title || typeof data.title !== "string") throw new Error("title required");
-    return {
-      title: data.title.slice(0, 300),
-      hook: (data.hook ?? "").slice(0, 300),
-      audience: (data.audience ?? "").slice(0, 200),
-      format: (data.format ?? "").slice(0, 60),
-      angle: (data.angle ?? "").slice(0, 300),
-    };
-  })
+  .inputValidator(
+    (data: {
+      title: string;
+      hook?: string;
+      audience?: string;
+      format?: string;
+      angle?: string;
+    }) => {
+      if (!data?.title || typeof data.title !== "string") throw new Error("title required");
+      return {
+        title: data.title.slice(0, 300),
+        hook: (data.hook ?? "").slice(0, 300),
+        audience: (data.audience ?? "").slice(0, 200),
+        format: (data.format ?? "").slice(0, 60),
+        angle: (data.angle ?? "").slice(0, 300),
+      };
+    },
+  )
   .handler(async ({ data }) => {
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
@@ -212,7 +241,14 @@ Make it tactical and fluff-free.`;
         },
         cta: { type: "string" },
       },
-      required: ["pdf_title", "subtitle", "estimated_pages", "reader_transformation", "chapters", "cta"],
+      required: [
+        "pdf_title",
+        "subtitle",
+        "estimated_pages",
+        "reader_transformation",
+        "chapters",
+        "cta",
+      ],
     };
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -227,7 +263,11 @@ Make it tactical and fluff-free.`;
         tools: [
           {
             type: "function",
-            function: { name: "return_outline", description: "Return chapter outline", parameters: schema },
+            function: {
+              name: "return_outline",
+              description: "Return chapter outline",
+              parameters: schema,
+            },
           },
         ],
         tool_choice: { type: "function", function: { name: "return_outline" } },

@@ -24,10 +24,7 @@ export const APIRoute = createAPIFileRoute("/api/payment/verify")({
       const txn = await verifyTransaction(reference);
 
       if (txn.status !== "success") {
-        return json(
-          { verified: false, reason: `Transaction status is '${txn.status}'` },
-          200
-        );
+        return json({ verified: false, reason: `Transaction status is '${txn.status}'` }, 200);
       }
 
       return json(
@@ -37,7 +34,7 @@ export const APIRoute = createAPIFileRoute("/api/payment/verify")({
           reference,
           subscriptionCode: txn.subscription?.subscription_code ?? null,
         },
-        200
+        200,
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : "Verification failed";

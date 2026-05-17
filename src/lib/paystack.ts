@@ -72,12 +72,9 @@ export async function verifyTransaction(reference: string): Promise<{
   const secretKey = process.env.PAYSTACK_SECRET_KEY;
   if (!secretKey) throw new Error("PAYSTACK_SECRET_KEY is not configured");
 
-  const res = await fetch(
-    `${PAYSTACK_BASE}/transaction/verify/${encodeURIComponent(reference)}`,
-    {
-      headers: { Authorization: `Bearer ${secretKey}` },
-    }
-  );
+  const res = await fetch(`${PAYSTACK_BASE}/transaction/verify/${encodeURIComponent(reference)}`, {
+    headers: { Authorization: `Bearer ${secretKey}` },
+  });
 
   if (!res.ok) {
     const text = await res.text();
@@ -97,7 +94,7 @@ export async function verifyTransaction(reference: string): Promise<{
  * ---------------------------------------------------------------------------*/
 export async function verifyWebhookSignature(
   rawBody: string,
-  signatureHeader: string | null
+  signatureHeader: string | null,
 ): Promise<boolean> {
   if (!signatureHeader) return false;
 
@@ -114,7 +111,7 @@ export async function verifyWebhookSignature(
     keyData,
     { name: "HMAC", hash: "SHA-512" },
     false,
-    ["sign"]
+    ["sign"],
   );
 
   const signatureBuffer = await crypto.subtle.sign("HMAC", cryptoKey, bodyData);

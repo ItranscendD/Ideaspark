@@ -30,7 +30,7 @@ export const APIRoute = createAPIFileRoute("/api/payment/restore")({
       console.error("[api/payment/restore] Error:", err);
       return new Response(
         JSON.stringify({ error: err instanceof Error ? err.message : "Restore failed" }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
+        { status: 500, headers: { "Content-Type": "application/json" } },
       );
     }
   },

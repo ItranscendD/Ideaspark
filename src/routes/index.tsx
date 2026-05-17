@@ -9,7 +9,7 @@ import {
   type TitleIdea,
   type Outline,
   type SalesCopy,
-  type SocialPost
+  type SocialPost,
 } from "@/lib/titles.functions";
 import { FREE_GENERATION_LIMIT } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,7 @@ import {
   Rocket,
   Clock,
   CheckCircle,
-  MessageSquare
+  MessageSquare,
 } from "lucide-react";
 
 // ── Vault Types ─────────────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ const AUDIENCE_PRESETS = [
   "Church Pastors",
   "Tech Founders",
   "Real Estate Agents",
-  "First-time Homebuyers"
+  "First-time Homebuyers",
 ];
 
 // ── localStorage keys ──────────────────────────────────────────────────────
@@ -113,26 +113,41 @@ export const Route = createFileRoute("/")({
 
 // ── Vault state helpers ────────────────────────────────────────────────────
 function getVault(): VaultIdea[] {
-  try { return JSON.parse(localStorage.getItem(LS_VAULT) ?? "[]"); }
-  catch { return []; }
+  try {
+    return JSON.parse(localStorage.getItem(LS_VAULT) ?? "[]");
+  } catch {
+    return [];
+  }
 }
 function saveVault(v: VaultIdea[]) {
-  try { localStorage.setItem(LS_VAULT, JSON.stringify(v)); }
-  catch { /* SSR */ }
+  try {
+    localStorage.setItem(LS_VAULT, JSON.stringify(v));
+  } catch {
+    /* SSR */
+  }
 }
 
 // ── Subscription state helpers ─────────────────────────────────────────────
 function getGenCount(): number {
-  try { return parseInt(localStorage.getItem(LS_GEN_COUNT) ?? "0", 10) || 0; }
-  catch { return 0; }
+  try {
+    return parseInt(localStorage.getItem(LS_GEN_COUNT) ?? "0", 10) || 0;
+  } catch {
+    return 0;
+  }
 }
 function isSubscribed(): boolean {
-  try { return localStorage.getItem(LS_SUBSCRIBED) === "true"; }
-  catch { return false; }
+  try {
+    return localStorage.getItem(LS_SUBSCRIBED) === "true";
+  } catch {
+    return false;
+  }
 }
 function incrementGenCount() {
-  try { localStorage.setItem(LS_GEN_COUNT, String(getGenCount() + 1)); }
-  catch { /* SSR */ }
+  try {
+    localStorage.setItem(LS_GEN_COUNT, String(getGenCount() + 1));
+  } catch {
+    /* SSR */
+  }
 }
 
 // ── Main component ─────────────────────────────────────────────────────────
@@ -145,7 +160,9 @@ function Index() {
   const [outlineFor, setOutlineFor] = useState<TitleIdea | null>(null);
 
   // Sorting and Filtering
-  const [sortBy, setSortBy] = useState<"trend" | "demand" | "volume" | "intent" | "comp" | "conv">("trend");
+  const [sortBy, setSortBy] = useState<"trend" | "demand" | "volume" | "intent" | "comp" | "conv">(
+    "trend",
+  );
   const [filterFormat, setFilterFormat] = useState("All");
   const [filterAudience, setFilterAudience] = useState("All");
 
@@ -205,7 +222,9 @@ function Index() {
     try {
       const saved = localStorage.getItem(LS_EMAIL);
       if (saved) setPaywallEmail(saved);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     // Handle Paystack redirect back: ?payment=success&reference=xxx
     const params = new URLSearchParams(window.location.search);
@@ -303,7 +322,9 @@ function Index() {
 
     try {
       localStorage.setItem(LS_EMAIL, paywallEmail);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     setPaymentLoading(true);
     setPaymentError(null);
@@ -372,7 +393,7 @@ function Index() {
 
   // ── Derived Data for Results ──────────────────────────────────────────────
   const rawIdeas = mutation.data?.ideas ?? [];
-  
+
   // Get unique formats and audiences for filters
   const formats = ["All", ...Array.from(new Set(rawIdeas.map((i) => i.format)))];
   const audiences = ["All", ...Array.from(new Set(rawIdeas.map((i) => i.audience)))];
@@ -383,12 +404,18 @@ function Index() {
     .filter((idea) => filterAudience === "All" || idea.audience === filterAudience)
     .sort((a, b) => {
       switch (sortBy) {
-        case "demand": return b.demand_score - a.demand_score;
-        case "volume": return b.volume_score - a.volume_score;
-        case "intent": return b.intent_score - a.intent_score;
-        case "comp": return b.competition_score - a.competition_score;
-        case "conv": return b.conversion_score - a.conversion_score;
-        default: return b.trend_score - a.trend_score;
+        case "demand":
+          return b.demand_score - a.demand_score;
+        case "volume":
+          return b.volume_score - a.volume_score;
+        case "intent":
+          return b.intent_score - a.intent_score;
+        case "comp":
+          return b.competition_score - a.competition_score;
+        case "conv":
+          return b.conversion_score - a.conversion_score;
+        default:
+          return b.trend_score - a.trend_score;
       }
     });
 
@@ -404,10 +431,7 @@ function Index() {
         </div>
       )}
 
-      <div
-        className="relative overflow-hidden"
-        style={{ backgroundImage: "var(--grad-hero)" }}
-      >
+      <div className="relative overflow-hidden" style={{ backgroundImage: "var(--grad-hero)" }}>
         <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
           <div className="flex items-center gap-2">
             <div
@@ -426,7 +450,7 @@ function Index() {
               )}
             </div>
           </div>
-          
+
           <nav className="flex items-center gap-1 rounded-full border border-border bg-secondary/50 p-1">
             <button
               onClick={() => setShowVault(false)}
@@ -485,7 +509,7 @@ function Index() {
                     required
                   />
                 </div>
-                
+
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -529,7 +553,9 @@ function Index() {
 
               <div className="flex items-center justify-between border-t border-border pt-4 px-2">
                 <div className="hidden items-center gap-2 md:flex">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Quick Select:</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    Quick Select:
+                  </span>
                   <div className="flex flex-wrap gap-1.5">
                     {AUDIENCE_PRESETS.slice(0, 3).map((a) => (
                       <button
@@ -563,11 +589,17 @@ function Index() {
                 </Button>
               </div>
             </form>
-            
+
             <div className="flex flex-wrap justify-center gap-4 text-xs font-medium text-muted-foreground">
-              <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-primary" /> Demand-backed scoring</span>
-              <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-primary" /> Audience-specific targeting</span>
-              <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-primary" /> Sorting by Volume & Intent</span>
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-primary" /> Demand-backed scoring
+              </span>
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-primary" /> Audience-specific targeting
+              </span>
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-primary" /> Sorting by Volume & Intent
+              </span>
             </div>
           </div>
 
@@ -598,7 +630,9 @@ function Index() {
                       </SelectTrigger>
                       <SelectContent>
                         {formats.map((f) => (
-                          <SelectItem key={f} value={f}>{f}</SelectItem>
+                          <SelectItem key={f} value={f}>
+                            {f}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -608,7 +642,9 @@ function Index() {
                       </SelectTrigger>
                       <SelectContent>
                         {audiences.map((a) => (
-                          <SelectItem key={a} value={a}>{a}</SelectItem>
+                          <SelectItem key={a} value={a}>
+                            {a}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -619,7 +655,7 @@ function Index() {
                       <SortAsc className="h-3.5 w-3.5" />
                       Sort:
                     </div>
-                    <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+                    <Select value={sortBy} onValueChange={(v: string) => setSortBy(v)}>
                       <SelectTrigger className="h-9 w-[140px] bg-primary/10 font-semibold text-primary">
                         <SelectValue placeholder="Sort by" />
                       </SelectTrigger>
@@ -647,7 +683,10 @@ function Index() {
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="secondary" className="rounded-full bg-secondary text-[10px] uppercase tracking-wider font-bold">
+                              <Badge
+                                variant="secondary"
+                                className="rounded-full bg-secondary text-[10px] uppercase tracking-wider font-bold"
+                              >
                                 {idea.format}
                               </Badge>
                               <TrendBadge score={idea.trend_score} />
@@ -661,9 +700,13 @@ function Index() {
                                 className={`h-8 rounded-full border-primary/20 px-3 text-[10px] font-bold uppercase tracking-wider ${isSaved ? "bg-primary/10 text-primary border-primary/30" : "hover:bg-primary/5 hover:text-primary"}`}
                               >
                                 {isSaved ? (
-                                  <><Check className="mr-1.5 h-3 w-3" /> Saved</>
+                                  <>
+                                    <Check className="mr-1.5 h-3 w-3" /> Saved
+                                  </>
                                 ) : (
-                                  <><Plus className="mr-1.5 h-3 w-3" /> Save to Vault</>
+                                  <>
+                                    <Plus className="mr-1.5 h-3 w-3" /> Save to Vault
+                                  </>
                                 )}
                               </Button>
                               <button
@@ -671,13 +714,19 @@ function Index() {
                                 className="rounded-full bg-secondary/50 p-2 text-muted-foreground transition hover:bg-primary/10 hover:text-primary"
                                 aria-label="Copy title"
                               >
-                                {copied === i ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                {copied === i ? (
+                                  <Check className="h-4 w-4" />
+                                ) : (
+                                  <Copy className="h-4 w-4" />
+                                )}
                               </button>
                             </div>
                           </div>
 
                           <div className="space-y-2">
-                            <h3 className="text-2xl font-extrabold leading-tight tracking-tight text-foreground">{idea.title}</h3>
+                            <h3 className="text-2xl font-extrabold leading-tight tracking-tight text-foreground">
+                              {idea.title}
+                            </h3>
                             <p className="text-base italic text-muted-foreground">"{idea.hook}"</p>
                           </div>
 
@@ -699,7 +748,9 @@ function Index() {
                                 </span>
                                 <DensityBadge density={idea.density} />
                               </div>
-                              <p className="text-xs text-foreground leading-snug">{idea.marketplace_data}</p>
+                              <p className="text-xs text-foreground leading-snug">
+                                {idea.marketplace_data}
+                              </p>
                             </div>
                             <div className="flex items-center justify-between border-t border-border pt-2">
                               <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -707,15 +758,29 @@ function Index() {
                                 Suggested Pricing
                               </span>
                               <div className="flex items-center gap-3">
-                                <div className="text-xs font-bold text-primary">{idea.price_usd} <span className="opacity-60 font-medium">USD</span></div>
-                                <div className="text-xs font-bold text-accent">{idea.price_ngn} <span className="opacity-60 font-medium">NGN</span></div>
+                                <div className="text-xs font-bold text-primary">
+                                  {idea.price_usd}{" "}
+                                  <span className="opacity-60 font-medium">USD</span>
+                                </div>
+                                <div className="text-xs font-bold text-accent">
+                                  {idea.price_ngn}{" "}
+                                  <span className="opacity-60 font-medium">NGN</span>
+                                </div>
                               </div>
                             </div>
                           </div>
 
                           <div className="mt-auto space-y-3 border-t border-border pt-5 text-[13px]">
-                            <Row icon={<Users className="h-4 w-4 text-primary" />} label="Audience" value={idea.audience} />
-                            <Row icon={<TrendingUp className="h-4 w-4 text-primary" />} label="Demand Signal" value={idea.search_signal} />
+                            <Row
+                              icon={<Users className="h-4 w-4 text-primary" />}
+                              label="Audience"
+                              value={idea.audience}
+                            />
+                            <Row
+                              icon={<TrendingUp className="h-4 w-4 text-primary" />}
+                              label="Demand Signal"
+                              value={idea.search_signal}
+                            />
                           </div>
 
                           <div className="grid grid-cols-2 gap-3 pt-2">
@@ -746,7 +811,9 @@ function Index() {
                       <Filter className="h-8 w-8 text-muted-foreground" />
                     </div>
                     <h3 className="text-xl font-bold">No ideas match these filters</h3>
-                    <p className="mt-1 text-muted-foreground">Try clearing your filters or generating more ideas.</p>
+                    <p className="mt-1 text-muted-foreground">
+                      Try clearing your filters or generating more ideas.
+                    </p>
                   </div>
                 )}
               </div>
@@ -754,9 +821,21 @@ function Index() {
 
             {!mutation.data && !mutation.isPending && (
               <div className="grid gap-6 rounded-3xl border border-border bg-card p-10 md:grid-cols-3 shadow-premium">
-                <Feature icon={<TrendingUp className="h-6 w-6 text-primary" />} title="Demand-grounded" text="Every idea is verified against live search signals from Google, Reddit & YouTube." />
-                <Feature icon={<Target className="h-6 w-6 text-primary" />} title="Audience-specific" text="Target exact segments like 'pastors' or 'Nigerian moms' for high resonance." />
-                <Feature icon={<Zap className="h-6 w-6 text-primary" />} title="High Intent" text="Identify ideas with commercial intent so you build what actually sells." />
+                <Feature
+                  icon={<TrendingUp className="h-6 w-6 text-primary" />}
+                  title="Demand-grounded"
+                  text="Every idea is verified against live search signals from Google, Reddit & YouTube."
+                />
+                <Feature
+                  icon={<Target className="h-6 w-6 text-primary" />}
+                  title="Audience-specific"
+                  text="Target exact segments like 'pastors' or 'Nigerian moms' for high resonance."
+                />
+                <Feature
+                  icon={<Zap className="h-6 w-6 text-primary" />}
+                  title="High Intent"
+                  text="Identify ideas with commercial intent so you build what actually sells."
+                />
               </div>
             )}
           </>
@@ -765,14 +844,24 @@ function Index() {
             <div className="flex items-center justify-between border-b border-border pb-6">
               <div>
                 <h2 className="text-3xl font-bold tracking-tight">My Idea Vault</h2>
-                <p className="text-muted-foreground">Organize and execute your high-demand product ideas.</p>
+                <p className="text-muted-foreground">
+                  Organize and execute your high-demand product ideas.
+                </p>
               </div>
               <div className="flex items-center gap-3">
                 <div className="flex flex-col items-end text-right">
-                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Workspace Stats</span>
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                    Workspace Stats
+                  </span>
                   <div className="flex gap-4">
-                    <span className="text-sm font-bold">{vault.length} <span className="font-normal text-muted-foreground">Ideas</span></span>
-                    <span className="text-sm font-bold text-primary">{vault.filter(v => v.status === "Published").length} <span className="font-normal text-muted-foreground">Live</span></span>
+                    <span className="text-sm font-bold">
+                      {vault.length}{" "}
+                      <span className="font-normal text-muted-foreground">Ideas</span>
+                    </span>
+                    <span className="text-sm font-bold text-primary">
+                      {vault.filter((v) => v.status === "Published").length}{" "}
+                      <span className="font-normal text-muted-foreground">Live</span>
+                    </span>
                   </div>
                 </div>
               </div>
@@ -788,7 +877,9 @@ function Index() {
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         <StatusBadge status={v.status} />
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Saved {new Date(v.savedAt).toLocaleDateString()}</span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                          Saved {new Date(v.savedAt).toLocaleDateString()}
+                        </span>
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -808,7 +899,10 @@ function Index() {
                             <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Published
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => removeFromVault(v.id)} className="text-destructive">
+                          <DropdownMenuItem
+                            onClick={() => removeFromVault(v.id)}
+                            className="text-destructive"
+                          >
                             <Trash2 className="mr-2 h-4 w-4" /> Remove from Vault
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -816,9 +910,14 @@ function Index() {
                     </div>
 
                     <h3 className="text-2xl font-bold leading-tight">{v.idea.title}</h3>
-                    
+
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="secondary" className="rounded-full bg-secondary text-[10px] uppercase tracking-wider font-bold">{v.idea.format}</Badge>
+                      <Badge
+                        variant="secondary"
+                        className="rounded-full bg-secondary text-[10px] uppercase tracking-wider font-bold"
+                      >
+                        {v.idea.format}
+                      </Badge>
                       <DensityBadge density={v.idea.density} />
                     </div>
 
@@ -847,8 +946,15 @@ function Index() {
                   <Plus className="h-10 w-10 text-muted-foreground" />
                 </div>
                 <h3 className="text-2xl font-bold">Your vault is empty</h3>
-                <p className="mt-2 max-w-sm text-muted-foreground">Save your favorite high-demand ideas here to track your progress from idea to published product.</p>
-                <Button onClick={() => setShowVault(false)} className="mt-8 h-12 px-8 font-bold" style={{ background: "var(--grad-accent)" }}>
+                <p className="mt-2 max-w-sm text-muted-foreground">
+                  Save your favorite high-demand ideas here to track your progress from idea to
+                  published product.
+                </p>
+                <Button
+                  onClick={() => setShowVault(false)}
+                  className="mt-8 h-12 px-8 font-bold"
+                  style={{ background: "var(--grad-accent)" }}
+                >
                   Discover New Ideas
                 </Button>
               </div>
@@ -965,14 +1071,17 @@ function SalesCopyDialog({
             Marketing Assets
           </DialogTitle>
           <DialogDescription>
-            One-click sales copy and social posts for: <span className="font-bold text-foreground">{idea?.title}</span>
+            One-click sales copy and social posts for:{" "}
+            <span className="font-bold text-foreground">{idea?.title}</span>
           </DialogDescription>
         </DialogHeader>
 
         {isLoading && (
           <div className="flex flex-col items-center gap-4 py-16 text-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm font-medium">Drafting high-converting copy using AIDA framework...</p>
+            <p className="text-sm font-medium">
+              Drafting high-converting copy using AIDA framework...
+            </p>
           </div>
         )}
 
@@ -997,9 +1106,19 @@ function SalesCopyDialog({
               <div className="space-y-4">
                 <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
                   <div className="mb-4 flex items-center justify-between border-b border-border pb-4">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Landing Page Headline</span>
-                    <Button variant="ghost" size="sm" onClick={() => handleCopy(copy.headline, "h")}>
-                      {copied === "h" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                      Landing Page Headline
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCopy(copy.headline, "h")}
+                    >
+                      {copied === "h" ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
                     </Button>
                   </div>
                   <h3 className="text-2xl font-extrabold leading-tight">{copy.headline}</h3>
@@ -1007,9 +1126,19 @@ function SalesCopyDialog({
 
                 <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
                   <div className="mb-4 flex items-center justify-between border-b border-border pb-4">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Product Description</span>
-                    <Button variant="ghost" size="sm" onClick={() => handleCopy(copy.description, "d")}>
-                      {copied === "d" ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                      Product Description
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCopy(copy.description, "d")}
+                    >
+                      {copied === "d" ? (
+                        <Check className="h-3.5 w-3.5 text-primary" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
                       <span className="ml-2">Copy All</span>
                     </Button>
                   </div>
@@ -1027,8 +1156,16 @@ function SalesCopyDialog({
                         <MessageSquare className="h-3 w-3" />
                         {post.platform}
                       </span>
-                      <Button variant="ghost" size="sm" onClick={() => handleCopy(post.content, `s-${i}`)}>
-                        {copied === `s-${i}` ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCopy(post.content, `s-${i}`)}
+                      >
+                        {copied === `s-${i}` ? (
+                          <Check className="h-3.5 w-3.5 text-primary" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )}
                       </Button>
                     </div>
                     <p className="text-sm font-medium leading-relaxed">{post.content}</p>
@@ -1046,7 +1183,7 @@ function SalesCopyDialog({
 function DensityBadge({ density }: { density: TitleIdea["density"] }) {
   let styles = "bg-green-100 text-green-700 border-green-200";
   let icon = <Globe className="h-2.5 w-2.5" />;
-  
+
   if (density === "Emerging") {
     styles = "bg-amber-100 text-amber-700 border-amber-200";
     icon = <TrendingUp className="h-2.5 w-2.5" />;
@@ -1056,7 +1193,9 @@ function DensityBadge({ density }: { density: TitleIdea["density"] }) {
   }
 
   return (
-    <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-tight ${styles}`}>
+    <span
+      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-tight ${styles}`}
+    >
       {icon}
       {density}
     </span>
@@ -1069,8 +1208,8 @@ function TrendBadge({ score }: { score: number }) {
     s >= 80
       ? "bg-primary/15 text-primary border-primary/30"
       : s >= 60
-      ? "bg-accent/15 text-accent border-accent/30"
-      : "bg-secondary text-muted-foreground border-border";
+        ? "bg-accent/15 text-accent border-accent/30"
+        : "bg-secondary text-muted-foreground border-border";
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${tone}`}
@@ -1101,19 +1240,33 @@ function ScoreBars({
     <div className="space-y-1.5 rounded-xl border border-border bg-secondary/30 p-4">
       <div className="grid grid-cols-2 gap-4 pb-2">
         <MetricBadge label="Volume" value={volume} icon={<BarChart3 className="h-3 w-3" />} />
-        <MetricBadge label="Intent" value={intent} icon={<MousePointerClick className="h-3 w-3" />} />
+        <MetricBadge
+          label="Intent"
+          value={intent}
+          icon={<MousePointerClick className="h-3 w-3" />}
+        />
       </div>
       <div className="space-y-1.5 border-t border-border pt-2">
         <Bar label="Demand" value={demand} />
         <Bar label="Low comp." value={competition} />
         <Bar label="Conversion" value={conversion} />
       </div>
-      {rationale && <p className="pt-2 text-[11px] leading-snug text-muted-foreground">{rationale}</p>}
+      {rationale && (
+        <p className="pt-2 text-[11px] leading-snug text-muted-foreground">{rationale}</p>
+      )}
     </div>
   );
 }
 
-function MetricBadge({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
+function MetricBadge({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+}) {
   const v = Math.round(value ?? 0);
   const color = v >= 70 ? "text-primary bg-primary/10" : "text-muted-foreground bg-secondary/50";
   return (
@@ -1158,7 +1311,12 @@ function OutlineDialog({
 }) {
   const open = !!idea;
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-left">
@@ -1179,9 +1337,7 @@ function OutlineDialog({
           </div>
         )}
 
-        {error && !isLoading && (
-          <p className="py-6 text-sm text-destructive">{error.message}</p>
-        )}
+        {error && !isLoading && <p className="py-6 text-sm text-destructive">{error.message}</p>}
 
         {outline && !isLoading && (
           <div className="space-y-5">
@@ -1229,8 +1385,13 @@ function OutlineDialog({
               ))}
             </ol>
 
-            <div className="rounded-xl border border-primary/30 p-4" style={{ background: "var(--grad-hero)" }}>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-primary">Closing CTA</div>
+            <div
+              className="rounded-xl border border-primary/30 p-4"
+              style={{ background: "var(--grad-hero)" }}
+            >
+              <div className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                Closing CTA
+              </div>
               <p className="mt-1 text-sm">{outline.cta}</p>
             </div>
           </div>
@@ -1262,7 +1423,7 @@ function PaywallDialog({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-[440px]">
         <div className="relative flex flex-col items-center text-center">
-          <button 
+          <button
             onClick={onClose}
             className="absolute -right-2 -top-2 rounded-full bg-secondary p-1 text-muted-foreground hover:text-foreground"
           >
@@ -1276,7 +1437,8 @@ function PaywallDialog({
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">Unlock Unlimited Ideas</DialogTitle>
             <DialogDescription className="mt-2 text-balance text-muted-foreground">
-              You've used your free generation. Upgrade to TitleForge Pro to keep forging high-converting lead magnets.
+              You've used your free generation. Upgrade to TitleForge Pro to keep forging
+              high-converting lead magnets.
             </DialogDescription>
           </DialogHeader>
 
@@ -1288,7 +1450,7 @@ function PaywallDialog({
                 <span className="text-xs text-muted-foreground">/mo</span>
               </span>
             </div>
-            
+
             <div className="space-y-3 pt-2">
               <div className="flex items-center gap-3 text-sm">
                 <CheckCircle2 className="h-4 w-4 text-primary" />
@@ -1307,7 +1469,10 @@ function PaywallDialog({
 
           <div className="w-full space-y-4">
             <div className="space-y-2 text-left">
-              <label htmlFor="p-email" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <label
+                htmlFor="p-email"
+                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+              >
                 Email for account
               </label>
               <Input
@@ -1341,7 +1506,7 @@ function PaywallDialog({
                   </>
                 )}
               </Button>
-              
+
               <Button
                 onClick={onRestore}
                 disabled={isLoading || !email.includes("@")}
@@ -1351,7 +1516,7 @@ function PaywallDialog({
                 Already subscribed? Restore access
               </Button>
             </div>
-            
+
             <p className="text-[10px] text-muted-foreground">
               Secure payments powered by Paystack. Cancel anytime.
             </p>
@@ -1361,4 +1526,3 @@ function PaywallDialog({
     </Dialog>
   );
 }
-
