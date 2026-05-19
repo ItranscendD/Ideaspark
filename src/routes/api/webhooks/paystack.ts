@@ -40,7 +40,7 @@ interface PaystackEvent {
 }
 
 export const APIRoute = createAPIFileRoute("/api/webhooks/paystack")({
-  POST: async ({ request }) => {
+  POST: async ({ request }: { request: any }) => {
     // ── 1. Read raw body (required for HMAC verification) ──────────────────
     const rawBody = await request.text();
     const signature = request.headers.get("x-paystack-signature");
@@ -81,7 +81,7 @@ export const APIRoute = createAPIFileRoute("/api/webhooks/paystack")({
 
           console.log(
             `[webhook/paystack] Payment success — ref: ${reference}, ` +
-              `customer: ${customer?.email}, amount: ${amount} ${currency}`,
+            `customer: ${customer?.email}, amount: ${amount} ${currency}`,
           );
 
           // ----------------------------------------------------------------
@@ -112,7 +112,7 @@ export const APIRoute = createAPIFileRoute("/api/webhooks/paystack")({
           const { subscription_code, customer } = event.data;
           console.log(
             `[webhook/paystack] Subscription created — code: ${subscription_code}, ` +
-              `customer: ${customer?.email}`,
+            `customer: ${customer?.email}`,
           );
 
           // ----------------------------------------------------------------
@@ -131,7 +131,7 @@ export const APIRoute = createAPIFileRoute("/api/webhooks/paystack")({
           const { subscription_code, customer, subscription } = event.data;
           console.log(
             `[webhook/paystack] Subscription disabled — code: ${subscription_code ?? subscription?.subscription_code}, ` +
-              `customer: ${customer?.email}, status: ${subscription?.status}`,
+            `customer: ${customer?.email}, status: ${subscription?.status}`,
           );
 
           // ----------------------------------------------------------------
@@ -151,7 +151,7 @@ export const APIRoute = createAPIFileRoute("/api/webhooks/paystack")({
           const { customer, subscription } = event.data;
           console.warn(
             `[webhook/paystack] ⚠️ Recurring payment failed — ` +
-              `customer: ${customer?.email}, sub: ${subscription?.subscription_code}`,
+            `customer: ${customer?.email}, sub: ${subscription?.subscription_code}`,
           );
 
           // ----------------------------------------------------------------
